@@ -8,8 +8,8 @@
 
 | 你的电脑 | 下载哪个文件 |
 | --- | --- |
-| Windows 64 位 | [Windows 完整包](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.0/wx-mini-video-windows-amd64.zip) |
-| macOS 13 及以上，Intel 或 Apple Silicon | [Mac 通用包（测试版）](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.0/wx-mini-video-macos-universal-unsigned.zip) |
+| Windows 64 位 | [Windows 完整包](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
+| macOS 13 及以上，Intel 或 Apple Silicon | [Mac 通用包（测试版）](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
 
 **下载后先完整解压，不要直接在压缩包里运行。** 合并媒体所需的工具已随包附带，无需另外安装。
 

@@ -2,7 +2,7 @@
 
 使用说明见 [README.md](README.md)，英文说明见 [README.en.md](README.en.md)，构建与发布流程见 [docs/guide.md](docs/guide.md)。
 
-## v0.2.0 · 2026-11-26
+## v0.2.1 · 2026-11-26
 
 依据 [ADR 0014](docs/adr/0014-purple-flat-ui-and-readable-names.md) 完成视觉重构、图标渲染优化、工作区精简与可读命名升级：
 

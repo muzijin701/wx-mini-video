@@ -8,8 +8,8 @@ Save images, videos, and audio loaded by **Mini Programs in desktop WeChat**. Re
 
 | Your computer | File to download |
 | --- | --- |
-| 64-bit Windows | [Complete Windows package](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.0/wx-mini-video-windows-amd64.zip) |
-| macOS 13 or later, Intel or Apple Silicon | [Universal Mac package (test build)](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.0/wx-mini-video-macos-universal-unsigned.zip) |
+| 64-bit Windows | [Complete Windows package](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
+| macOS 13 or later, Intel or Apple Silicon | [Universal Mac package (test build)](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
 
 **Extract the whole ZIP before running the app.** The tools needed to merge media are included; no separate installation is needed.
 

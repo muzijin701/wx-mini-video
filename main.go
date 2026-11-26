@@ -12,7 +12,7 @@ import (
 	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
-var AppVer = "v0.2.0"
+var AppVer = "v0.2.1"
 var Mode = "debug"
 
 func main() {

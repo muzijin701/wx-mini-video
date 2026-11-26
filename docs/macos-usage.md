@@ -2,7 +2,7 @@
 
 适用 macOS 13 及以上，Apple Silicon 与 Intel 共用一个 ZIP。保留 Windows 版的单主界面、目标 AppID 严格归属、来源未确认媒体、图片、直链视频、直链音频、m3u8 与 HTTP-FLV 直播流录制。
 
-[下载 v0.2.0 Mac 通用 ZIP](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.0/wx-mini-video-macos-universal-unsigned.zip)。Mac 与 Windows 包在同一 [v0.2.0 Release](https://github.com/MuZiJin701/wx-mini-video/releases/tag/v0.2.0) 并列提供，附件摘要见发布说明；完整中文使用指南见 [README.md](https://github.com/MuZiJin701/wx-mini-video/blob/main/README.md)。
+[下载 v0.2.1 Mac 通用 ZIP](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip)。Mac 与 Windows 包在同一 [v0.2.1 Release](https://github.com/MuZiJin701/wx-mini-video/releases/tag/v0.2.1) 并列提供，附件摘要见发布说明；完整中文使用指南见 [README.md](https://github.com/MuZiJin701/wx-mini-video/blob/main/README.md)。
 
 `wx-mini-video-macos-universal-unsigned.zip` 是本地构建的未签名测试包，仅供验证；正式发布须完成 Developer ID 签名、公证与双架构真机验收，并使用不含 `unsigned` 的文件名。
 
