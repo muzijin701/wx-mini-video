@@ -2,9 +2,9 @@
 
 使用说明见 [README.md](README.md)，英文说明见 [README.en.md](README.en.md)，构建与发布流程见 [docs/guide.md](docs/guide.md)。
 
-## v0.2.0 更新 · 紫色扁平化界面、个人图标清晰度、可读命名与目录整理（2026-11-26，沿用 v0.1.9 标签）
+## v0.2.0 · 2026-11-26
 
-依据 [ADR 0014](docs/adr/0014-purple-flat-ui-and-readable-names.md) 完成视觉重构、图标渲染优化、工作区精简与可读命名升级（继续沿用 `v0.1.9` 标签与 Release 原位分发，包内应用版本为 `v0.2.0`）：
+依据 [ADR 0014](docs/adr/0014-purple-flat-ui-and-readable-names.md) 完成视觉重构、图标渲染优化、工作区精简与可读命名升级：
 
 ### 界面、配色与显示修复
 
