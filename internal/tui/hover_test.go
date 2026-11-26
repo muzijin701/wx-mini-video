@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 // hoverState 描述一个需要验证悬停稳定性的界面状态。
@@ -112,42 +112,86 @@ func TestHoverNeverChangesPhysicalLayout(t *testing.T) {
 	sizes := []struct{ width, height int }{{110, 40}, {80, 24}, {60, 20}}
 	for _, state := range hoverStates() {
 		for _, size := range sizes {
-			m := state.build(t)
-			m.width, m.height = size.width, size.height
-			base := m.View()
-			baseLines := strings.Split(base, "\n")
-			assertPhysicalLines(t, size.width, size.height, baseLines, state.name)
-			baseRegions := append([]hitRegion(nil), m.hits.regions...)
-			if len(baseRegions) == 0 {
-				t.Fatalf("%s %dx%d: no hit regions rendered", state.name, size.width, size.height)
-			}
-			for _, region := range baseRegions {
-				x := region.x + region.w/2
-				y := region.y + region.h/2
-				next, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: x, Y: y})
-				hovered := next.(model)
-				lines := strings.Split(hovered.View(), "\n")
-				assertPhysicalLines(t, size.width, size.height, lines, state.name+" 悬停")
-				if len(hovered.hits.regions) != len(baseRegions) {
-					t.Fatalf("%s %dx%d: hover over %v changed hit region count: %d != %d",
-						state.name, size.width, size.height, region.action, len(hovered.hits.regions), len(baseRegions))
+			for _, dark := range []bool{false, true} {
+				m := state.build(t)
+				m.width, m.height = size.width, size.height
+				if dark {
+					m.appearance = ui.AppearanceDark
+				} else {
+					m.appearance = ui.AppearanceLight
 				}
-				for i, want := range baseRegions {
-					got := hovered.hits.regions[i]
-					if got != want {
-						t.Fatalf("%s %dx%d: hover over %v moved hit region %d: %#v != %#v",
-							state.name, size.width, size.height, region.action, i, got, want)
+				m.applyTheme()
+				base := m.View()
+				baseLines := strings.Split(base, "\n")
+				assertPhysicalLines(t, size.width, size.height, baseLines, state.name)
+				baseRegions := append([]hitRegion(nil), m.hits.regions...)
+				if len(baseRegions) == 0 {
+					t.Fatalf("%s %dx%d: no hit regions rendered", state.name, size.width, size.height)
+				}
+				for _, region := range baseRegions {
+					x := region.x + region.w/2
+					y := region.y + region.h/2
+					next, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: x, Y: y})
+					hovered := next.(model)
+					lines := strings.Split(hovered.View(), "\n")
+					assertPhysicalLines(t, size.width, size.height, lines, state.name+" 悬停")
+					if len(hovered.hits.regions) != len(baseRegions) {
+						t.Fatalf("%s %dx%d: hover over %v changed hit region count: %d != %d",
+							state.name, size.width, size.height, region.action, len(hovered.hits.regions), len(baseRegions))
+					}
+					for i, want := range baseRegions {
+						got := hovered.hits.regions[i]
+						if got != want {
+							t.Fatalf("%s %dx%d: hover over %v moved hit region %d: %#v != %#v",
+								state.name, size.width, size.height, region.action, i, got, want)
+						}
 					}
 				}
-			}
-			// 移出所有命中区域后，渲染必须与初始状态完全一致。
-			emptyX, emptyY := findEmptyCell(baseRegions, size.width, size.height)
-			next, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: emptyX, Y: emptyY})
-			cleared := next.(model)
-			if got := cleared.View(); got != base {
-				t.Fatalf("%s %dx%d: leaving all hit regions changed the frame", state.name, size.width, size.height)
+				// 移出所有命中区域后，渲染必须与初始状态完全一致。
+				emptyX, emptyY := findEmptyCell(baseRegions, size.width, size.height)
+				next, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: emptyX, Y: emptyY})
+				cleared := next.(model)
+				if got := cleared.View(); got != base {
+					t.Fatalf("%s %dx%d: leaving all hit regions changed the frame", state.name, size.width, size.height)
+				}
 			}
 		}
+	}
+}
+
+func TestAppearanceDropdownWidthAndOverlayRightBackground(t *testing.T) {
+	m := mediaTestModel(t)
+	m.width, m.height = 110, 40
+	m.appearance = ui.AppearanceDark
+	m.applyTheme()
+	m.appearanceOpen = true
+	m.candidates = testCandidates(2)
+
+	pane, _ := m.appearanceDropdownPane(m.metricsNow())
+	wantW := ui.Width(pane[0])
+	for i, line := range pane {
+		if got := ui.Width(line); got != wantW {
+			t.Fatalf("dropdown line %d width = %d, want %d: %q", i, got, wantW, line)
+		}
+	}
+
+	// 验证居中覆盖层（左右都有背景列）在右侧不会丢失画布背景底色。
+	m.appearanceOpen = false
+	m.showLogs = true
+	m.logs = []string{"13:00:01 代理已启动"}
+	bg := m.bgANSI()
+	viewLines := strings.Split(m.View(), "\n")
+	checked := false
+	for i, line := range viewLines {
+		if strings.Contains(line, "13:00:01 代理已启动") {
+			checked = true
+			if !strings.Contains(line, "\x1b[0m"+bg) {
+				t.Fatalf("overlay line %d lost right-side background color: %q", i, line)
+			}
+		}
+	}
+	if !checked {
+		t.Fatal("log overlay line not rendered")
 	}
 }
 

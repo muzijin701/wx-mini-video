@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"wx_channel/pkg/certificate"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 func TestIsOwnProxySnapshot(t *testing.T) {

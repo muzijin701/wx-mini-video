@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 func TestActionsAndFooterStayVisible(t *testing.T) {
@@ -20,6 +20,9 @@ func TestActionsAndFooterStayVisible(t *testing.T) {
 		for _, label := range []string{"下载 · d", "停止 · x", "详情 · i", "日志 · l", "刷新 · r", "打开目录 · o", "清空 · c", "更换目标 · s", "退出 · Ctrl+Q"} {
 			findLineContaining(t, lines, label)
 		}
+		if _, ok := findHit(m, hitActionTargetSwitch); ok {
+			t.Fatal("target switch button should be disabled while downloading")
+		}
 		stop, ok := findHit(m, hitActionStop)
 		if !ok || stop.y+stop.h > m.height-m.footerHeight(m.metricsNow()) {
 			t.Fatalf("%dx%d: stop button missing or clipped: %+v", size.width, size.height, stop)
@@ -30,8 +33,8 @@ func TestActionsAndFooterStayVisible(t *testing.T) {
 		}
 		quit, ok := findHit(m, hitActionQuit)
 		quitRow := findLineContaining(t, lines, "退出 · Ctrl+Q")
-		if !ok || quit.h != 3 || quitRow != quit.y+1 {
-			t.Fatalf("quit button is not framed or its hit region is misaligned: %+v", quit)
+		if !ok || quit.h != 1 || quitRow != quit.y {
+			t.Fatalf("quit button hit region misaligned: %+v row=%d", quit, quitRow)
 		}
 		link, ok := findHit(m, hitGitHub)
 		linkRow := findLineContaining(t, lines, "GitHub")

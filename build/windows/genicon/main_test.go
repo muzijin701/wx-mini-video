@@ -264,7 +264,7 @@ func parseResourceSection(t *testing.T, section parsedCOFFSection) resourceView 
 
 func readFixtureICO(t *testing.T) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "icons", "logo.ico"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "icons", "logo.ico"))
 	if err != nil {
 		t.Fatalf("读取参考 ICO: %v", err)
 	}

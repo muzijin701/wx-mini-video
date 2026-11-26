@@ -187,3 +187,54 @@ func TestPainterConcurrentAccess(t *testing.T) {
 		t.Fatalf("Close() error = %v", err)
 	}
 }
+
+func TestPainterDisablingSixelErasesPreviousCellsBeforeFrame(t *testing.T) {
+	var output bytes.Buffer
+	painter := NewPainter(&output, Capability{Protocol: ProtocolSixel, CellWidth: 8, CellHeight: 16})
+	painter.SetBackground([3]uint8{0x14, 0x12, 0x1e})
+	painter.SetEnabled(true)
+	painter.SetPlacement(1, 2, 4, 2)
+	if _, err := painter.Write([]byte("first")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if !strings.Contains(output.String(), "\x1bP") {
+		t.Fatal("expected sixel sequence on initial draw")
+	}
+
+	output.Reset()
+	painter.SetEnabled(false)
+	if _, err := painter.Write([]byte("overlay")); err != nil {
+		t.Fatalf("Write() after disable error = %v", err)
+	}
+	got := output.String()
+	if !strings.HasPrefix(got, "\x1b7\x1b[2;3H\x1b[48;2;20;18;30m    ") {
+		t.Fatalf("disabling sixel should erase previous cells before frame, got %q", got)
+	}
+	if !strings.HasSuffix(got, "overlay") {
+		t.Fatalf("frame should follow erase sequence, got %q", got)
+	}
+	if strings.Contains(got, "\x1bP") {
+		t.Fatal("disabled painter must not redraw sixel")
+	}
+}
+
+func TestPainterSetDarkInvalidatesCache(t *testing.T) {
+	var output bytes.Buffer
+	painter := NewPainter(&output, Capability{Protocol: ProtocolSixel, CellWidth: 8, CellHeight: 16})
+	painter.SetEnabled(true)
+	painter.SetPlacement(0, 0, 4, 2)
+	if _, err := painter.Write([]byte("same")); err != nil {
+		t.Fatal(err)
+	}
+	darkOut := output.String()
+
+	output.Reset()
+	painter.SetDark(false)
+	if _, err := painter.Write([]byte("same")); err != nil {
+		t.Fatal(err)
+	}
+	lightOut := output.String()
+	if darkOut == lightOut {
+		t.Fatal("SetDark(false) did not re-encode light logo")
+	}
+}

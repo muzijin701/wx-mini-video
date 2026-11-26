@@ -1,4 +1,4 @@
-module wx_channel
+module github.com/MuZiJin701/wx-mini-video
 
 go 1.23.0
 

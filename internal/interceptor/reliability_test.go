@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 func TestPlaylistCaptureKeepsRelativeURLsForAuthenticatedReplay(t *testing.T) {

@@ -523,3 +523,107 @@ func TestStoreSetLiveUpdatesTargetAndUnattributed(t *testing.T) {
 		t.Fatal("SetLive should ignore blank candidate IDs")
 	}
 }
+
+func TestExtractMediaURLsFromJSONRichTitlesAndParentInheritance(t *testing.T) {
+	body := []byte(`{
+		"data": {
+			"content": [
+				{
+					"goodsName": "  东方甄选原切牛排 \n 礼盒装  ",
+					"videoInfo": {
+						"label": "hd",
+						"videoUrl": "https://v3.eastbuy.com/vod/d8fb84bccd044dd6885dfd56332a8292.mp4"
+					}
+				},
+				{
+					"roomName": "双11生鲜专场直播",
+					"liveStreamUrl": "https://play-t-live.example.com/7559179538913600_d3fhd.flv"
+				},
+				{
+					"title": "640",
+					"imageUrl": "https://mmbiz.qpic.cn/mmbiz_jpg/abc123/640.jpg"
+				}
+			]
+		}
+	}`)
+	candidates := ExtractMediaURLsFromJSON(body)
+	if len(candidates) != 3 {
+		t.Fatalf("got %d candidates, want 3: %#v", len(candidates), candidates)
+	}
+	byURL := map[string]Candidate{}
+	for _, c := range candidates {
+		byURL[c.URL] = c
+	}
+	if got := byURL["https://v3.eastbuy.com/vod/d8fb84bccd044dd6885dfd56332a8292.mp4"].Title; got != "东方甄选原切牛排 礼盒装" {
+		t.Fatalf("nested video title = %q, want parent goodsName", got)
+	}
+	if got := byURL["https://play-t-live.example.com/7559179538913600_d3fhd.flv"].Title; got != "双11生鲜专场直播" {
+		t.Fatalf("live stream title = %q, want roomName", got)
+	}
+	if got := byURL["https://mmbiz.qpic.cn/mmbiz_jpg/abc123/640.jpg"].Title; got != "" {
+		t.Fatalf("numeric opaque title should be ignored, got %q", got)
+	}
+}
+
+func TestExtractDispositionAndHTMLTitles(t *testing.T) {
+	if got := ExtractDispositionTitle(`attachment; filename*=UTF-8''%E6%98%A5%E5%AD%A3%E8%AF%BE%E7%A8%8B%E8%AE%B2%E8%A7%A3.mp4`); got != "春季课程讲解" {
+		t.Fatalf("ExtractDispositionTitle RFC5987 = %q", got)
+	}
+	if got := ExtractDispositionTitle(`inline; filename="af8f312f05994fd6bcd87c419b312b62.mp4"`); got != "" {
+		t.Fatalf("ExtractDispositionTitle opaque hash should be ignored, got %q", got)
+	}
+	htmlBody := []byte(`<html><head><title>旧标题</title><meta property="og:title" content="高数精讲第1课 &amp; 笔记"></head><body><video src="https://cdn.example.com/a.mp4"></video></body></html>`)
+	if got := ExtractHTMLTitle(htmlBody); got != "高数精讲第1课 & 笔记" {
+		t.Fatalf("ExtractHTMLTitle = %q", got)
+	}
+}
+
+func TestExtractURLTitle(t *testing.T) {
+	cases := []struct {
+		url  string
+		want string
+	}{
+		{"https://cdn.eastbuy.com/media/%E5%AE%A3%E4%BC%A0%E7%89%87.mp4", "宣传片"},
+		{"https://cdn.eastbuy.com/assets/spring-banner.jpg?v=2", "spring-banner"},
+		{"https://cdn.eastbuy.com/vod/d8fb84bccd044dd6885dfd56332a8292.mp4", ""},
+		{"https://play-t-live.example.com/7559184446249188_esd.flv", ""},
+		{"https://cdn.example.com/live/index.m3u8", ""},
+		{"https://cdn.example.com/stream.flv", ""},
+		{"https://cdn.example.com/video.mp4", ""},
+		{"https://cdn.example.com/a.jpg", ""},
+		{"https://cdn.example.com/宣传.mp4", "宣传"},
+	}
+	for _, tc := range cases {
+		if got := ExtractURLTitle(tc.url); got != tc.want {
+			t.Errorf("ExtractURLTitle(%q) = %q, want %q", tc.url, got, tc.want)
+		}
+	}
+}
+
+func TestStoreSyncsTitleAcrossTargetAndUnattributed(t *testing.T) {
+	// 1. 目标 JSON 先带标题进入 -> 后续缺少 Referer 的未归属响应自动继承该标题。
+	store := NewStore()
+	store.SetTarget(Target{AppID: "wx123"})
+	_, gen := store.Observe("wx123")
+	u1 := "https://v3.eastbuy.com/vod/d8fb84bccd044dd6885dfd56332a8292.mp4"
+	if _, ok := store.AddForTarget(gen, Candidate{AppID: "wx123", URL: u1, Title: "原切牛排讲解", Kind: "video", Suffix: ".mp4"}, nil); !ok {
+		t.Fatal("failed to add target candidate")
+	}
+	gotU, ok := store.AddUnattributed(Candidate{URL: u1, Source: "response", Kind: "video", Suffix: ".mp4"})
+	if !ok || gotU.Title != "原切牛排讲解" {
+		t.Fatalf("unattributed candidate did not inherit target title: %#v", gotU)
+	}
+
+	// 2. 未归属先带标题进入（或后补）-> 目标候选自动同步标题。
+	u2 := "https://cdn.eastbuy.com/media/998877665544.mp4"
+	if _, ok := store.AddForTarget(gen, Candidate{AppID: "wx123", URL: u2, Kind: "video", Suffix: ".mp4"}, nil); !ok {
+		t.Fatal("failed to add untitled target candidate")
+	}
+	if _, ok := store.AddUnattributed(Candidate{URL: u2, Title: "新品预热视频", Kind: "video", Suffix: ".mp4"}); !ok {
+		t.Fatal("failed to add titled unattributed candidate")
+	}
+	gotT, ok := store.Get(CandidateID("wx123", u2))
+	if !ok || gotT.Title != "新品预热视频" {
+		t.Fatalf("target candidate did not receive propagated title: %#v", gotT)
+	}
+}

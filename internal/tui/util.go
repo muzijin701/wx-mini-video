@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 var categories = []category{categoryAll, categoryImage, categoryVideo, categoryAudio, categoryLive, categorySegments}
@@ -212,14 +212,24 @@ func formatDuration(ms int64) string {
 var recordTimeRegexp = regexp.MustCompile(`(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}Z-(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}Z`)
 
 func candidateLabel(candidate miniprogram.Candidate) string {
+	quality := ""
+	if candidate.Live {
+		quality = liveQualityLabel(candidate.URL)
+	}
 	if title := strings.TrimSpace(candidate.Title); title != "" {
+		if quality != "" && !strings.Contains(title, quality) {
+			return title + " · " + quality
+		}
 		return title
 	}
 	u, err := url.Parse(candidate.URL)
 	if err != nil {
-		return candidate.Kind
+		return candidateKindDisplay(candidate)
 	}
 	base := path.Base(u.Path)
+	if unescaped, err := url.PathUnescape(base); err == nil && unescaped != "" {
+		base = unescaped
+	}
 	if candidate.Kind == "m3u8" {
 		if match := recordTimeRegexp.FindStringSubmatch(base); len(match) == 5 {
 			if match[1] == match[3] {
@@ -227,19 +237,109 @@ func candidateLabel(candidate miniprogram.Candidate) string {
 			}
 			return "回放 " + match[1] + " " + match[2] + " 至 " + match[3] + " " + match[4]
 		}
-		stream := streamName(u.Path)
-		if stream != "" {
-			return "直播流 " + stream
+		if stream := streamName(u.Path); stream != "" {
+			return "分段流 · " + shortenOpaqueID(stream)
 		}
-		return "m3u8 " + base
 	}
+	stem := ""
 	if base != "" && base != "." && base != "/" {
-		return strings.TrimSuffix(base, path.Ext(base))
+		stem = strings.TrimSuffix(base, path.Ext(base))
 	}
-	if u.Host != "" {
-		return u.Host
+	if candidate.Live {
+		parts := []string{"直播流"}
+		if quality != "" {
+			parts = append(parts, quality)
+		}
+		if stream := streamName(u.Path); stream != "" {
+			parts = append(parts, shortenOpaqueID(stream))
+		} else if stem != "" {
+			parts = append(parts, shortenOpaqueID(stripQualitySuffix(stem)))
+		} else if u.Hostname() != "" {
+			parts = append(parts, u.Hostname())
+		}
+		return strings.Join(parts, " · ")
 	}
-	return candidate.Kind
+	if stem != "" && !miniprogram.LooksLikeOpaqueID(stem) {
+		return stem
+	}
+	return candidateFallbackSummary(candidate, u)
+}
+
+func candidateFallbackSummary(candidate miniprogram.Candidate, u *url.URL) string {
+	label := fieldDisplay(candidate.FieldPath)
+	if label == "" {
+		ext := strings.TrimPrefix(strings.ToUpper(candidate.Suffix), ".")
+		if ext == "" && u != nil {
+			ext = strings.TrimPrefix(strings.ToUpper(path.Ext(u.Path)), ".")
+		}
+		kindName := candidateKindDisplay(candidate)
+		if ext != "" && kindName != "-" && kindName != "其他" {
+			label = ext + " " + kindName
+		} else if kindName != "-" {
+			label = kindName
+		} else {
+			label = "媒体"
+		}
+	}
+	if domain, _ := miniprogram.ExtractBusinessDomain(candidate.URL); domain != "" {
+		return label + " · " + domain
+	}
+	if u != nil && u.Hostname() != "" {
+		return label + " · " + u.Hostname()
+	}
+	return label
+}
+
+func liveQualityLabel(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	lower := strings.ToLower(strings.TrimSuffix(path.Base(u.Path), path.Ext(u.Path)))
+	switch {
+	case strings.HasSuffix(lower, "_uhd"), strings.HasSuffix(lower, "_4k"), strings.HasSuffix(lower, "_2160p"):
+		return "蓝光 UHD"
+	case strings.HasSuffix(lower, "_d3fhd"), strings.HasSuffix(lower, "_efhd"), strings.HasSuffix(lower, "_fhd"), strings.HasSuffix(lower, "_1080p"):
+		return "超清 FHD"
+	case strings.HasSuffix(lower, "_ehd"), strings.HasSuffix(lower, "_hd"), strings.HasSuffix(lower, "_720p"):
+		return "高清 HD"
+	case strings.HasSuffix(lower, "_esd"), strings.HasSuffix(lower, "_sd"), strings.HasSuffix(lower, "_480p"):
+		return "标清 SD"
+	case strings.HasSuffix(lower, "_eld"), strings.HasSuffix(lower, "_ld"), strings.HasSuffix(lower, "_360p"):
+		return "流畅 LD"
+	case strings.HasSuffix(lower, "_orig"), strings.HasSuffix(lower, "_origin"):
+		return "原画"
+	}
+	return ""
+}
+
+func stripQualitySuffix(stem string) string {
+	lower := strings.ToLower(stem)
+	for _, sfx := range []string{
+		"_d3fhd", "_efhd", "_fhd", "_1080p",
+		"_ehd", "_hd", "_720p",
+		"_esd", "_sd", "_480p",
+		"_eld", "_ld", "_360p",
+		"_uhd", "_4k", "_2160p",
+		"_orig", "_origin",
+	} {
+		if strings.HasSuffix(lower, sfx) && len(stem) > len(sfx) {
+			return stem[:len(stem)-len(sfx)]
+		}
+	}
+	return stem
+}
+
+func shortenOpaqueID(s string) string {
+	s = strings.TrimSpace(s)
+	runes := []rune(s)
+	if len(runes) <= 10 {
+		return s
+	}
+	if miniprogram.LooksLikeOpaqueID(s) {
+		return string(runes[:4]) + "…" + string(runes[len(runes)-4:])
+	}
+	return s
 }
 
 func candidateReadableInfo(candidate miniprogram.Candidate) string {

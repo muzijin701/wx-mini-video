@@ -13,11 +13,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/app"
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/logo"
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/app"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/logo"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 type startMsg struct {
@@ -157,9 +157,9 @@ func Run(runtime *app.Runtime) error {
 	}
 	m.applyTheme()
 	if capability.Available() {
-		m.logs = append(m.logs, fmt.Sprintf("终端图片能力: %s，像素格 %dx%d（品牌 logo 使用真图）", capability.Protocol, capability.CellWidth, capability.CellHeight))
+		m.logs = append(m.logs, fmt.Sprintf("终端图片能力: %s，像素格 %dx%d（品牌区使用个人图标）", capability.Protocol, capability.CellWidth, capability.CellHeight))
 	} else {
-		m.logs = append(m.logs, "终端图片能力: 不可用（品牌 logo 使用块字符方案）")
+		m.logs = append(m.logs, "终端图片能力: 不可用（品牌区使用纯文字）")
 	}
 	options := []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithOutput(output)}
 	p := tea.NewProgram(m, options...)
@@ -596,6 +596,7 @@ func (m *model) applyTheme() {
 	m.st = newStyles(palette)
 	if m.painter != nil {
 		m.painter.SetBackground(ui.RGB(palette.Background))
+		m.painter.SetDark(m.dark)
 	}
 }
 

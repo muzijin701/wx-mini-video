@@ -3,6 +3,7 @@ package logo
 import (
 	"bytes"
 	"encoding/base64"
+	"image"
 	"image/color"
 	"image/png"
 	"strings"
@@ -190,20 +191,34 @@ func TestClearBytes(t *testing.T) {
 }
 
 func TestRenderCanvasBackgroundAndCentering(t *testing.T) {
-	source, err := decodeLogo()
+	for _, dark := range []bool{false, true} {
+		source, err := decodeLogo(dark)
+		if err != nil {
+			t.Fatalf("decodeLogo(%v) error = %v", dark, err)
+		}
+		background := [3]uint8{0x11, 0x22, 0x33}
+		canvas := renderLogoCanvas(source, 100, 50, background)
+		if got := canvas.RGBAAt(0, 0); got != (color.RGBA{R: 0x11, G: 0x22, B: 0x33, A: 0xff}) {
+			t.Fatalf("corner pixel = %#v, want background", got)
+		}
+		if got := canvas.RGBAAt(49, 24); got == (color.RGBA{R: 0x11, G: 0x22, B: 0x33, A: 0xff}) {
+			t.Fatal("centre pixel should contain the icon, not background")
+		}
+		if canvas.Bounds().Dx() != 100 || canvas.Bounds().Dy() != 50 {
+			t.Fatalf("canvas size = %v", canvas.Bounds())
+		}
+	}
+	capability := Capability{Protocol: ProtocolSixel, CellWidth: 8, CellHeight: 16}
+	lightSeq, err := capability.EncodeLogoForTheme(4, 3, [3]uint8{0xf7, 0xf6, 0xfc}, false)
 	if err != nil {
-		t.Fatalf("decodeLogo() error = %v", err)
+		t.Fatalf("EncodeLogoForTheme(light) error = %v", err)
 	}
-	background := [3]uint8{0x11, 0x22, 0x33}
-	canvas := renderLogoCanvas(source, 100, 50, background)
-	if got := canvas.RGBAAt(0, 0); got != (color.RGBA{R: 0x11, G: 0x22, B: 0x33, A: 0xff}) {
-		t.Fatalf("corner pixel = %#v, want background", got)
+	darkSeq, err := capability.EncodeLogoForTheme(4, 3, [3]uint8{0x14, 0x12, 0x1e}, true)
+	if err != nil {
+		t.Fatalf("EncodeLogoForTheme(dark) error = %v", err)
 	}
-	if got := canvas.RGBAAt(49, 24); got == (color.RGBA{R: 0x11, G: 0x22, B: 0x33, A: 0xff}) {
-		t.Fatal("centre pixel should contain the icon, not background")
-	}
-	if canvas.Bounds().Dx() != 100 || canvas.Bounds().Dy() != 50 {
-		t.Fatalf("canvas size = %v", canvas.Bounds())
+	if bytes.Equal(lightSeq, darkSeq) {
+		t.Fatal("light and dark logos should produce distinct encodings")
 	}
 }
 
@@ -214,6 +229,63 @@ func TestLogoSize(t *testing.T) {
 	}
 	if width != 512 || height != 512 {
 		t.Fatalf("LogoSize() = %dx%d, want 512x512", width, height)
+	}
+}
+
+func TestDownscalePreservesThinLines(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 512, 512))
+	dark := color.RGBA{R: 0x14, G: 0x12, B: 0x1e, A: 0xff}
+	bright := color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+	for y := 0; y < 512; y++ {
+		for x := 0; x < 512; x++ {
+			if y == 255 || y == 256 || x == 255 || x == 256 {
+				src.SetRGBA(x, y, bright)
+			} else {
+				src.SetRGBA(x, y, dark)
+			}
+		}
+	}
+
+	canvas := renderLogoCanvas(src, 100, 100, [3]uint8{0x14, 0x12, 0x1e})
+	var maxHoriz, maxVert uint8
+	for x := 10; x < 90; x++ {
+		for y := 47; y <= 52; y++ {
+			if r := canvas.RGBAAt(x, y).R; r > maxHoriz {
+				maxHoriz = r
+			}
+		}
+	}
+	for y := 10; y < 90; y++ {
+		for x := 47; x <= 52; x++ {
+			if r := canvas.RGBAAt(x, y).R; r > maxVert {
+				maxVert = r
+			}
+		}
+	}
+	if maxHoriz < 0x50 || maxVert < 0x50 {
+		t.Fatalf("2px lines lost after 512->100 downscale: maxHoriz=%d maxVert=%d", maxHoriz, maxVert)
+	}
+}
+
+func TestQuantizeSixelSupports256Colors(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+	for i := 0; i < 256; i++ {
+		img.SetRGBA(i%16, i/16, color.RGBA{
+			R: uint8((i * 17) & 0xff),
+			G: uint8(i),
+			B: uint8((255 - i*7) & 0xff),
+			A: 0xff,
+		})
+	}
+	palette, indexed := quantizeSixel(img)
+	if len(palette) <= 64 || len(palette) > 256 {
+		t.Fatalf("palette len = %d, want (64, 256]", len(palette))
+	}
+	if len(indexed) != 256 {
+		t.Fatalf("indexed len = %d, want 256", len(indexed))
+	}
+	if seq, err := encodeSixel(img); err != nil || len(seq) == 0 {
+		t.Fatalf("encodeSixel() failed with 256 colors: err=%v len=%d", err, len(seq))
 	}
 }
 

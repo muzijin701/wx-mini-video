@@ -7,9 +7,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Palette 是一套外观模式下的语义色 token，沿用参考项目 channels-light/channels-dark 的绿系色值。
+// Palette 是紫色现代扁平化外观模式下的语义色 token。
 type Palette struct {
 	Primary       lipgloss.Color
+	PrimaryHover  lipgloss.Color
 	Accent        lipgloss.Color
 	Foreground    lipgloss.Color
 	Background    lipgloss.Color
@@ -22,11 +23,13 @@ type Palette struct {
 	Line          lipgloss.Color
 	EntryBG       lipgloss.Color
 	ButtonFG      lipgloss.Color
+	DisabledBG    lipgloss.Color
+	DisabledFG    lipgloss.Color
 	GradientStart lipgloss.Color
 	GradientEnd   lipgloss.Color
 }
 
-// RGB 把 lipgloss 颜色解析为 RGB 三元组，供终端图片背景使用。
+// RGB 把 lipgloss 颜色解析为 RGB 三元组，供终端图片背景与原生 ANSI 转义使用。
 func RGB(color lipgloss.Color) [3]uint8 {
 	hex := strings.TrimPrefix(string(color), "#")
 	var out [3]uint8
@@ -40,42 +43,48 @@ func RGB(color lipgloss.Color) [3]uint8 {
 	return [3]uint8{uint8(r), uint8(g), uint8(b)}
 }
 
-// PaletteFor 返回对应明暗模式的色板。
+// PaletteFor 返回对应明暗模式的紫色扁平色板。
 func PaletteFor(dark bool) Palette {
 	if dark {
 		return Palette{
-			Primary:       lipgloss.Color("#8ce5a8"),
-			Accent:        lipgloss.Color("#b6f0cb"),
-			Foreground:    lipgloss.Color("#dee0e3"),
-			Background:    lipgloss.Color("#283e2c"),
-			Surface:       lipgloss.Color("#1c3021"),
-			Panel:         lipgloss.Color("#35543c"),
-			Success:       lipgloss.Color("#afedba"),
-			Warning:       lipgloss.Color("#ffd38a"),
-			Error:         lipgloss.Color("#ffadc0"),
-			Muted:         lipgloss.Color("#afc9b5"),
-			Line:          lipgloss.Color("#608069"),
-			EntryBG:       lipgloss.Color("#192e20"),
-			ButtonFG:      lipgloss.Color("#142b1b"),
-			GradientStart: lipgloss.Color("#4cc06b"),
-			GradientEnd:   lipgloss.Color("#b6f0cb"),
+			Primary:       lipgloss.Color("#8B5CF6"),
+			PrimaryHover:  lipgloss.Color("#7C3AED"),
+			Accent:        lipgloss.Color("#C4B5FD"),
+			Foreground:    lipgloss.Color("#F3F1FA"),
+			Background:    lipgloss.Color("#14121E"),
+			Surface:       lipgloss.Color("#1E1A2E"),
+			Panel:         lipgloss.Color("#2A2440"),
+			Success:       lipgloss.Color("#34D399"),
+			Warning:       lipgloss.Color("#FBBF24"),
+			Error:         lipgloss.Color("#F87171"),
+			Muted:         lipgloss.Color("#9E95BA"),
+			Line:          lipgloss.Color("#3E355C"),
+			EntryBG:       lipgloss.Color("#1B1729"),
+			ButtonFG:      lipgloss.Color("#FFFFFF"),
+			DisabledBG:    lipgloss.Color("#1B1829"),
+			DisabledFG:    lipgloss.Color("#635B7D"),
+			GradientStart: lipgloss.Color("#6D28D9"),
+			GradientEnd:   lipgloss.Color("#C4B5FD"),
 		}
 	}
 	return Palette{
-		Primary:       lipgloss.Color("#285633"),
-		Accent:        lipgloss.Color("#164b2b"),
-		Foreground:    lipgloss.Color("#0c0d0e"),
-		Background:    lipgloss.Color("#88a28c"),
-		Surface:       lipgloss.Color("#a8bfae"),
-		Panel:         lipgloss.Color("#77977d"),
-		Success:       lipgloss.Color("#164d28"),
-		Warning:       lipgloss.Color("#583500"),
-		Error:         lipgloss.Color("#7d1731"),
-		Muted:         lipgloss.Color("#2d4934"),
-		Line:          lipgloss.Color("#55775c"),
-		EntryBG:       lipgloss.Color("#cbdccf"),
-		ButtonFG:      lipgloss.Color("#ffffff"),
-		GradientStart: lipgloss.Color("#285633"),
-		GradientEnd:   lipgloss.Color("#b6f0cb"),
+		Primary:       lipgloss.Color("#6D28D9"),
+		PrimaryHover:  lipgloss.Color("#5B21B6"),
+		Accent:        lipgloss.Color("#5B21B6"),
+		Foreground:    lipgloss.Color("#1E1833"),
+		Background:    lipgloss.Color("#F7F6FC"),
+		Surface:       lipgloss.Color("#ECE8F8"),
+		Panel:         lipgloss.Color("#E3DCF5"),
+		Success:       lipgloss.Color("#059669"),
+		Warning:       lipgloss.Color("#B45309"),
+		Error:         lipgloss.Color("#DC2626"),
+		Muted:         lipgloss.Color("#6B6189"),
+		Line:          lipgloss.Color("#CFC6EA"),
+		EntryBG:       lipgloss.Color("#FFFFFF"),
+		ButtonFG:      lipgloss.Color("#FFFFFF"),
+		DisabledBG:    lipgloss.Color("#EFEBF7"),
+		DisabledFG:    lipgloss.Color("#A49BC0"),
+		GradientStart: lipgloss.Color("#6D28D9"),
+		GradientEnd:   lipgloss.Color("#DDD6FE"),
 	}
 }

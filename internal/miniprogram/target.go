@@ -1,6 +1,8 @@
 package miniprogram
 
 import (
+	"net"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +11,7 @@ import (
 // Program 记录本次运行中观察到的小程序，只保留发现列表需要的元数据。
 type Program struct {
 	AppID     string    `json:"app_id"`
+	Domain    string    `json:"domain,omitempty"`
 	FirstSeen time.Time `json:"first_seen"`
 	LastSeen  time.Time `json:"last_seen"`
 }
@@ -35,9 +38,27 @@ func (s *Store) IsCurrentTarget(generation uint64) bool {
 }
 
 func (s *Store) Observe(appID string) (Target, uint64) {
+	return s.ObserveRequest(appID, "")
+}
+
+// ObserveRequest 登记请求来源 AppID 并统计其请求的业务域名提示。
+func (s *Store) ObserveRequest(appID, rawURL string) (Target, uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.observe(appID)
+	if appID != "" && rawURL != "" {
+		if domain, _ := ExtractBusinessDomain(rawURL); domain != "" {
+			if s.programHosts == nil {
+				s.programHosts = make(map[string]map[string]int)
+			}
+			counts := s.programHosts[appID]
+			if counts == nil {
+				counts = make(map[string]int)
+				s.programHosts[appID] = counts
+			}
+			counts[domain]++
+		}
+	}
 	return s.target, s.generation
 }
 
@@ -61,6 +82,9 @@ func (s *Store) Programs() []Program {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := append([]Program(nil), s.programs...)
+	for i := range out {
+		out[i].Domain = s.bestProgramDomainLocked(out[i].AppID)
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if !out[i].LastSeen.Equal(out[j].LastSeen) {
 			return out[i].LastSeen.After(out[j].LastSeen)
@@ -68,4 +92,89 @@ func (s *Store) Programs() []Program {
 		return out[i].FirstSeen.Before(out[j].FirstSeen)
 	})
 	return out
+}
+
+// ProgramDomain 返回指定 AppID 统计出的业务域名提示（仅供界面辅助辨识）。
+func (s *Store) ProgramDomain(appID string) string {
+	appID = strings.TrimSpace(appID)
+	if appID == "" {
+		return ""
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.bestProgramDomainLocked(appID)
+}
+
+func (s *Store) bestProgramDomainLocked(appID string) string {
+	counts := s.programHosts[appID]
+	if len(counts) == 0 {
+		return ""
+	}
+	bestBusiness, bestBusinessCount := "", 0
+	bestGeneric, bestGenericCount := "", 0
+	for domain, count := range counts {
+		if isGenericDomain(domain) {
+			if count > bestGenericCount || (count == bestGenericCount && (bestGeneric == "" || domain < bestGeneric)) {
+				bestGeneric = domain
+				bestGenericCount = count
+			}
+			continue
+		}
+		if count > bestBusinessCount || (count == bestBusinessCount && (bestBusiness == "" || domain < bestBusiness)) {
+			bestBusiness = domain
+			bestBusinessCount = count
+		}
+	}
+	if bestBusiness != "" {
+		return bestBusiness
+	}
+	return bestGeneric
+}
+
+// ExtractBusinessDomain 从请求 URL 提取归一化后的可注册域名，并标记是否为微信/通用基础云域。
+func ExtractBusinessDomain(rawURL string) (domain string, generic bool) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return "", false
+	}
+	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(u.Hostname()), "."))
+	if host == "" || host == "localhost" || net.ParseIP(host) != nil {
+		return "", false
+	}
+	if host == "servicewechat.com" || strings.HasSuffix(host, ".servicewechat.com") {
+		return "", false
+	}
+	domain = registrableDomain(host)
+	if domain == "" {
+		return "", false
+	}
+	return domain, isGenericDomain(domain)
+}
+
+func registrableDomain(host string) string {
+	parts := strings.Split(host, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	if len(parts) == 2 {
+		return host
+	}
+	tail2 := parts[len(parts)-2] + "." + parts[len(parts)-1]
+	switch tail2 {
+	case "com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "co.uk", "com.hk", "com.tw", "com.sg", "co.jp":
+		if len(parts) >= 3 {
+			return parts[len(parts)-3] + "." + tail2
+		}
+	}
+	return tail2
+}
+
+func isGenericDomain(domain string) bool {
+	switch domain {
+	case "qq.com", "qpic.cn", "qlogo.cn", "wechat.com", "myqcloud.com", "qcloud.com",
+		"aliyuncs.com", "volces.com", "byteimg.com", "baidubce.com", "bcebos.com",
+		"cdnhwc1.com", "cdnhwc2.com":
+		return true
+	}
+	return false
 }

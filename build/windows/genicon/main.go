@@ -1,14 +1,12 @@
 // Command genicon embeds the Windows executable icon resources.
 //
-// The icon artwork is reused as-is from the local reference project
-// (wechat-channels-downloader/downloader/assets): logo.png for the TUI,
-// logo.ico for the Windows executable and logo.icns for the macOS bundle.
+// The icon artwork comes from the maintainer's personal violet tabby-cat logo
+// assets (logo-light.png / logo-dark.png for the TUI, logo.ico for the Windows
+// executable and logo.icns for the macOS bundle).
 // This generator does not draw or regenerate brand artwork; it only converts
-// the checked-in build/icons/logo.ico into a COFF object file. The former
-// build/genlogo generator was removed when the reference PNG replaced the
-// generated brand image.
+// the checked-in build/icons/logo.ico into a COFF object file.
 //
-//	go run ./build/genicon
+//	go run ./build/windows/genicon
 //
 // The output, wx-mini-video_windows_amd64.syso, holds one .rsrc section with
 // RT_GROUP_ICON and RT_ICON resources. Its filename makes the Go toolchain use

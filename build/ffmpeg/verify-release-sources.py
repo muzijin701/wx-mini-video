@@ -10,7 +10,7 @@ import urllib.request
 
 
 def verify_sources(root):
-    records = json.loads((root / "build/ffmpeg-corresponding-sources.json").read_text(encoding="utf-8"))
+    records = json.loads((root / "build/ffmpeg/ffmpeg-corresponding-sources.json").read_text(encoding="utf-8"))
     platforms = {"windows-amd64", "darwin-amd64", "darwin-arm64"}
     if set(records) != platforms:
         raise ValueError("对应源码索引必须覆盖 Windows 与 Mac 的全部随包架构")
@@ -45,6 +45,6 @@ def verify_sources(root):
 
 if __name__ == "__main__":
     try:
-        verify_sources(pathlib.Path(__file__).resolve().parent.parent)
+        verify_sources(pathlib.Path(__file__).resolve().parents[2])
     except (ValueError, OSError) as error:
         sys.exit(str(error))

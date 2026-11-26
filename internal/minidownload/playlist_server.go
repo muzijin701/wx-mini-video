@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 // 将已捕获的播放列表交给 ffmpeg，同时由 Go 按请求来源限定分片和子播放列表的鉴权头。

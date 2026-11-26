@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"wx_channel/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
 )
 
 const (
@@ -107,8 +107,8 @@ func build() error {
 }
 
 // infoPlist renders the bundle metadata. CFBundleIconFile/CFBundleIconName
-// point at Contents/Resources/logo.icns, the shared brand icon reused from the
-// reference project and copied by copyAppIcon.
+// point at Contents/Resources/logo.icns, the personal violet tabby-cat brand
+// icon copied by copyAppIcon.
 func infoPlist(version string) string {
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -128,9 +128,8 @@ func infoPlist(version string) string {
 }
 
 // copyAppIcon installs build/icons/logo.icns at
-// wx-mini-video.app/Contents/Resources/logo.icns. The ICO, ICNS and PNG are
-// reused from the local reference project; this build step only copies the
-// checked-in asset.
+// wx-mini-video.app/Contents/Resources/logo.icns using the checked-in
+// personal violet tabby-cat icon asset.
 func copyAppIcon(root, app string) error {
 	resources := filepath.Join(app, "Resources")
 	if err := os.MkdirAll(resources, 0o755); err != nil {

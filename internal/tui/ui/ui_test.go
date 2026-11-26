@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestAppearanceRoundTripAndFallback(t *testing.T) {
@@ -129,18 +127,6 @@ func TestGradientLineFillsWidth(t *testing.T) {
 		palette := PaletteFor(dark)
 		if palette.Background == "" || palette.Primary == "" || palette.Error == "" {
 			t.Fatalf("palette missing tokens (dark=%v)", dark)
-		}
-	}
-}
-
-func TestBrandMarkWidth(t *testing.T) {
-	lines := BrandMark(PaletteFor(false))
-	if len(lines) != 3 {
-		t.Fatalf("brand mark lines = %d", len(lines))
-	}
-	for _, line := range lines {
-		if got := lipgloss.Width(line); got != BrandMarkWidth {
-			t.Fatalf("brand mark line width = %d, want %d: %q", got, BrandMarkWidth, line)
 		}
 	}
 }

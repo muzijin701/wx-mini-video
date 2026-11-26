@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"html"
 	"mime"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 type Target struct {
@@ -65,6 +67,7 @@ type Store struct {
 	target                 Target
 	generation             uint64
 	programs               []Program
+	programHosts           map[string]map[string]int
 	OnCandidateAdded       func(Candidate)
 }
 
@@ -73,6 +76,7 @@ func NewStore() *Store {
 		items:             make(map[string]Candidate),
 		unattributed:      make(map[string]Candidate),
 		unattributedOrder: nil,
+		programHosts:      make(map[string]map[string]int),
 	}
 }
 
@@ -123,6 +127,11 @@ func (s *Store) addUnattributed(candidate Candidate, generation *uint64) (Candid
 	}
 	if existing, exists := s.unattributed[candidate.ID]; exists {
 		changed := false
+		if candidate.Title == "" {
+			if targetTitle := s.findTargetTitleLocked(candidate.URL); targetTitle != "" {
+				candidate.Title = targetTitle
+			}
+		}
 		// 页面推测不能覆盖真实媒体请求中观察到的防盗链凭据。
 		preferExistingResponse := existing.Source == "response" && candidate.Source == "html"
 		if !preferExistingResponse && candidate.Source != "" && candidate.Source != existing.Source {
@@ -179,14 +188,25 @@ func (s *Store) addUnattributed(candidate Candidate, generation *uint64) (Candid
 		if changed {
 			s.unattributed[candidate.ID] = existing
 		}
+		if existing.Title != "" {
+			s.propagateTitleToTargetLocked(candidate.URL, existing.Title)
+		}
 		s.mu.Unlock()
 		return existing, changed
+	}
+	if candidate.Title == "" {
+		if targetTitle := s.findTargetTitleLocked(candidate.URL); targetTitle != "" {
+			candidate.Title = targetTitle
+		}
 	}
 	s.unattributed[candidate.ID] = candidate
 	s.unattributedOrder = append(s.unattributedOrder, candidate.ID)
 	for len(s.unattributedOrder) > unattributedLimit {
 		delete(s.unattributed, s.unattributedOrder[0])
 		s.unattributedOrder = s.unattributedOrder[1:]
+	}
+	if candidate.Title != "" {
+		s.propagateTitleToTargetLocked(candidate.URL, candidate.Title)
 	}
 	s.mu.Unlock()
 	return candidate, true
@@ -234,6 +254,12 @@ func (s *Store) add(candidate Candidate, generation *uint64, cache func() string
 	if cache != nil {
 		candidate.CachedPath = cache()
 	}
+	unattrID := CandidateID("", candidate.URL)
+	if candidate.Title == "" {
+		if u, ok := s.unattributed[unattrID]; ok && u.Title != "" {
+			candidate.Title = u.Title
+		}
+	}
 	if existing, exists := s.items[candidate.ID]; exists {
 		changed := false
 		if candidate.Source == "response" {
@@ -267,11 +293,17 @@ func (s *Store) add(candidate Candidate, generation *uint64, cache func() string
 		if changed {
 			s.items[candidate.ID] = existing
 		}
+		if existing.Title != "" {
+			s.propagateTitleToUnattributedLocked(unattrID, existing.Title)
+		}
 		s.mu.Unlock()
 		return existing, changed
 	}
 	s.items[candidate.ID] = candidate
 	s.order = append(s.order, candidate.ID)
+	if candidate.Title != "" {
+		s.propagateTitleToUnattributedLocked(unattrID, candidate.Title)
+	}
 	s.mu.Unlock()
 	if s.OnCandidateAdded != nil {
 		s.OnCandidateAdded(candidate)
@@ -657,10 +689,15 @@ type jsonTokenField struct {
 }
 
 func walkJSON(fieldPath string, v any, nearbyTitle string, seen map[string]Candidate) {
+	walkJSONRanked(fieldPath, v, nearbyTitle, 100, seen)
+}
+
+func walkJSONRanked(fieldPath string, v any, nearbyTitle string, nearbyRank int, seen map[string]Candidate) {
 	switch value := v.(type) {
 	case map[string]any:
-		if title := jsonObjectTitle(value); title != "" {
+		if title, rank := jsonObjectTitleRanked(value); title != "" && (nearbyTitle == "" || rank <= nearbyRank || rank <= 2) {
 			nearbyTitle = title
+			nearbyRank = rank
 		}
 		tokens := jsonTokenFields(value)
 		for k, child := range value {
@@ -672,7 +709,7 @@ func walkJSON(fieldPath string, v any, nearbyTitle string, seen map[string]Candi
 				walkJSONString(nextPath, text, nearbyTitle, tokens, seen)
 				continue
 			}
-			walkJSON(nextPath, child, nearbyTitle, seen)
+			walkJSONRanked(nextPath, child, nearbyTitle, nearbyRank, seen)
 		}
 	case []any:
 		nextPath := fieldPath + "[]"
@@ -680,7 +717,7 @@ func walkJSON(fieldPath string, v any, nearbyTitle string, seen map[string]Candi
 			nextPath = "[]"
 		}
 		for _, child := range value {
-			walkJSON(nextPath, child, nearbyTitle, seen)
+			walkJSONRanked(nextPath, child, nearbyTitle, nearbyRank, seen)
 		}
 	case string:
 		walkJSONString(fieldPath, value, nearbyTitle, nil, seen)
@@ -863,6 +900,11 @@ func looksLikeImageField(key string) bool {
 }
 
 func jsonObjectTitle(value map[string]any) string {
+	title, _ := jsonObjectTitleRanked(value)
+	return title
+}
+
+func jsonObjectTitleRanked(value map[string]any) (string, int) {
 	bestRank := 100
 	best := ""
 	for key, raw := range value {
@@ -870,24 +912,254 @@ func jsonObjectTitle(value map[string]any) string {
 		if !ok {
 			continue
 		}
-		text = strings.TrimSpace(text)
-		if text == "" || mediaURLRegexp.MatchString(text) {
-			continue
-		}
 		compact := strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(key))
 		rank := 100
 		switch compact {
-		case "title", "videotitle", "audiotitle", "mediatitle":
+		case "title", "videotitle", "audiotitle", "mediatitle", "livetitle", "roomtitle",
+			"articletitle", "coursetitle", "lessontitle", "chaptertitle", "programtitle",
+			"feedtitle", "posttitle", "headline", "subject", "caption":
 			rank = 1
-		case "caption", "subject":
+		case "goodsname", "productname", "spuname", "skuname", "itemname",
+			"roomname", "livename", "coursename", "lessonname", "chaptername",
+			"filename", "originalname", "displayname", "showname",
+			"medianame", "videoname", "audioname", "albumname", "songname", "trackname",
+			"topic", "name":
 			rank = 2
-		case "name":
+		case "anchorname", "authorname", "nickname", "username", "sellername",
+			"shopname", "storename", "desc", "description", "summary", "brief",
+			"content", "text", "label":
 			rank = 3
 		}
-		if rank < bestRank {
+		if rank >= 100 {
+			continue
+		}
+		cleaned := CleanCandidateTitle(text)
+		if cleaned == "" {
+			continue
+		}
+		if rank == 3 && (strings.ContainsAny(text, "<>{}") || len([]rune(strings.TrimSpace(text))) > 120) {
+			continue
+		}
+		if rank < bestRank || (rank == bestRank && cleaned < best) {
 			bestRank = rank
-			best = text
+			best = cleaned
 		}
 	}
-	return best
+	return best, bestRank
+}
+
+var (
+	uuidRegexp       = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	hexHashRegexp    = regexp.MustCompile(`(?i)^[0-9a-f]{12,}$`)
+	digitsOnlyRegexp = regexp.MustCompile(`^[0-9]+$`)
+	ogTitleRegexp    = regexp.MustCompile(`(?is)<meta[^>]+(?:property|name)\s*=\s*["']og:title["'][^>]+content\s*=\s*["']([^"']+)["']`)
+	ogTitleRevRegexp = regexp.MustCompile(`(?is)<meta[^>]+content\s*=\s*["']([^"']+)["'][^>]+(?:property|name)\s*=\s*["']og:title["']`)
+	htmlTitleRegexp  = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+)
+
+// CleanCandidateTitle 清洗从 JSON/响应头/网页中提取的候选标题，过滤无意义哈希、URL 与过长正文。
+func CleanCandidateTitle(raw string) string {
+	fields := strings.Fields(raw)
+	if len(fields) == 0 {
+		return ""
+	}
+	cleaned := strings.Join(fields, " ")
+	if mediaURLRegexp.MatchString(cleaned) {
+		return ""
+	}
+	if strings.HasPrefix(cleaned, "{") || strings.HasPrefix(cleaned, "[") {
+		return ""
+	}
+	if LooksLikeOpaqueID(cleaned) {
+		return ""
+	}
+	runes := []rune(cleaned)
+	if len(runes) > 60 {
+		cleaned = strings.TrimSpace(string(runes[:60]))
+	}
+	return cleaned
+}
+
+// LooksLikeOpaqueID 判断字符串是否更像数字编号、UUID 或随机哈希，而非人类可读名称。
+func LooksLikeOpaqueID(value string) bool {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return true
+	}
+	if digitsOnlyRegexp.MatchString(s) || uuidRegexp.MatchString(s) || hexHashRegexp.MatchString(s) {
+		return true
+	}
+	if strings.ContainsAny(s, " \t") {
+		return false
+	}
+	hasCJK := false
+	hasUpper := false
+	hasLower := false
+	hasDigit := false
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) {
+			hasCJK = true
+			break
+		}
+		if r >= 'A' && r <= 'Z' {
+			hasUpper = true
+		} else if r >= 'a' && r <= 'z' {
+			hasLower = true
+		} else if r >= '0' && r <= '9' {
+			hasDigit = true
+		}
+	}
+	if hasCJK {
+		return false
+	}
+	// 无空格、无中文且长度 >= 20 的字母数字混合随机 token（含 UUID 片段或 base64url）视作不透明 ID。
+	return len(s) >= 20 && hasDigit && (hasUpper || hasLower)
+}
+
+// ExtractDispositionTitle 从 HTTP Content-Disposition 头提取可读文件名（去掉扩展名并清洗）。
+func ExtractDispositionTitle(header string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return ""
+	}
+	_, params, err := mime.ParseMediaType(header)
+	if err != nil {
+		return ""
+	}
+	name := strings.TrimSpace(params["filename"])
+	if name == "" {
+		return ""
+	}
+	if unescaped, err := url.PathUnescape(name); err == nil && strings.TrimSpace(unescaped) != "" {
+		name = unescaped
+	}
+	name = path.Base(strings.ReplaceAll(name, "\\", "/"))
+	stem := strings.TrimSuffix(name, path.Ext(name))
+	return CleanCandidateTitle(stem)
+}
+
+// ExtractHTMLTitle 从网页源码提取 og:title 或 <title> 作为资源标题提示。
+func ExtractHTMLTitle(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	text := string(body)
+	for _, re := range []*regexp.Regexp{ogTitleRegexp, ogTitleRevRegexp, htmlTitleRegexp} {
+		if match := re.FindStringSubmatch(text); len(match) == 2 {
+			if cleaned := CleanCandidateTitle(html.UnescapeString(match[1])); cleaned != "" {
+				return cleaned
+			}
+		}
+	}
+	return ""
+}
+
+// ExtractURLTitle 从 URL 路径末段提取有意义的文件名（去掉扩展名与清晰度后缀），
+// 过滤通用占位名、过短纯 ASCII 片段与不透明哈希 ID。
+func ExtractURLTitle(rawURL string) string {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return ""
+	}
+	trimmedPath := strings.TrimRight(u.Path, "/")
+	if trimmedPath == "" || trimmedPath == "/" {
+		return ""
+	}
+	base := path.Base(trimmedPath)
+	if base == "" || base == "." || base == "/" {
+		return ""
+	}
+	if unescaped, err := url.PathUnescape(base); err == nil && strings.TrimSpace(unescaped) != "" {
+		base = unescaped
+	}
+	stem := strings.TrimSpace(strings.TrimSuffix(base, path.Ext(base)))
+	if stem == "" {
+		return ""
+	}
+	stem = stripURLQualitySuffix(stem)
+	if isGenericURLStem(stem) {
+		return ""
+	}
+	if isASCIIOnly(stem) && len(stem) <= 2 {
+		return ""
+	}
+	return CleanCandidateTitle(stem)
+}
+
+func stripURLQualitySuffix(stem string) string {
+	lower := strings.ToLower(stem)
+	for _, sfx := range []string{
+		"_d3fhd", "_efhd", "_fhd", "_1080p",
+		"_ehd", "_hd", "_720p",
+		"_esd", "_sd", "_480p",
+		"_eld", "_ld", "_360p",
+		"_uhd", "_4k", "_2160p",
+		"_orig", "_origin",
+	} {
+		if strings.HasSuffix(lower, sfx) && len(stem) > len(sfx) {
+			return stem[:len(stem)-len(sfx)]
+		}
+	}
+	return stem
+}
+
+func isGenericURLStem(stem string) bool {
+	switch strings.ToLower(strings.TrimSpace(stem)) {
+	case "index", "playlist", "master", "manifest", "chunklist",
+		"stream", "live", "livestream", "live-stream", "live_stream",
+		"video", "audio", "image", "img", "pic", "photo", "file", "media",
+		"download", "play", "default", "hls", "m3u8", "vod", "data",
+		"raw", "bin", "blob", "clip", "part", "seg", "segment", "resume",
+		"cover", "asset", "item", "resource", "content":
+		return true
+	}
+	return false
+}
+
+func isASCIIOnly(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Store) findTargetTitleLocked(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	if s.target.AppID != "" {
+		if item, ok := s.items[CandidateID(s.target.AppID, rawURL)]; ok && item.Title != "" {
+			return item.Title
+		}
+	}
+	for _, item := range s.items {
+		if item.URL == rawURL && item.Title != "" {
+			return item.Title
+		}
+	}
+	return ""
+}
+
+func (s *Store) propagateTitleToTargetLocked(rawURL, title string) {
+	if rawURL == "" || title == "" {
+		return
+	}
+	for id, item := range s.items {
+		if item.URL == rawURL && item.Title == "" {
+			item.Title = title
+			s.items[id] = item
+		}
+	}
+}
+
+func (s *Store) propagateTitleToUnattributedLocked(unattrID, title string) {
+	if unattrID == "" || title == "" {
+		return
+	}
+	if item, ok := s.unattributed[unattrID]; ok && item.Title == "" {
+		item.Title = title
+		s.unattributed[unattrID] = item
+	}
 }

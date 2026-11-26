@@ -40,7 +40,7 @@
 - Windows：首选 gyan.dev 9.0.2 essentials，备用 BtbN 2026-09-30 月末 8.1 LGPL。
 - macOS：Martin Riedl 9.0.2 的 amd64 / arm64 原始构建。
 
-对应下载地址、SHA-256 与来源说明仍记录在代码和 `build/fetch-ffmpeg.ps1` 等处；其许可证由上游提供，本项目不再分发这些二进制，也不把本项目的 GPLv3/LGPLv3 文本误称为其许可证。
+对应下载地址、SHA-256 与来源说明仍记录在代码和 `build/windows/fetch-ffmpeg.ps1` 等处；其许可证由上游提供，本项目不再分发这些二进制，也不把本项目的 GPLv3/LGPLv3 文本误称为其许可证。
 
 ## GPLv3 对应源码说明
 
@@ -48,7 +48,7 @@ FFmpeg 以 LGPLv3/GPLv3 授权发布。本项目按聚合方式分发项目程�
 
 ## 项目自身许可（独立标识）
 
-项目 `wx-mini-video`（Go 模块名 `wx_channel`）自身代码采用 **MIT License + Commons Clause**，完整文本见仓库根目录 `LICENSE`。Commons Clause 仅限制“出售”本项目软件，不改变 MIT 授予的其他权利，也不影响随包 ffmpeg 的 LGPLv3/GPLv3 授权。
+项目 `wx-mini-video`（Go 模块名 `github.com/MuZiJin701/wx-mini-video`）自身代码采用 **MIT License + Commons Clause**，完整文本见仓库根目录 `LICENSE`。Commons Clause 仅限制“出售”本项目软件，不改变 MIT 授予的其他权利，也不影响随包 ffmpeg 的 LGPLv3/GPLv3 授权。
 
 ## 聚合分发说明
 

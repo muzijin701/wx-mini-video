@@ -9,9 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 func TestCategoryFilteringCountsAndOrder(t *testing.T) {
@@ -393,11 +393,11 @@ func TestMouseQuitConfirmStartsStop(t *testing.T) {
 	if !ok {
 		t.Fatal("quit confirmation button hit missing")
 	}
-	hovered, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: region.x + 1, Y: region.y + 1})
+	hovered, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionMotion, X: region.x + 1, Y: region.y + region.h/2})
 	if h := hovered.(model); !h.hits.isHovered(hitQuitConfirm, 0) {
 		t.Fatal("hover over quit confirmation button was ignored")
 	}
-	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + 1})
+	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + region.h/2})
 	m = next.(model)
 	if cmd == nil || !m.stopping || m.confirmQuit {
 		t.Fatalf("mouse quit confirmation should start the stop flow: cmd=%v stopping=%v confirmQuit=%v", cmd, m.stopping, m.confirmQuit)
@@ -415,7 +415,7 @@ func TestMouseQuitConfirmDuringDownloadStopsFirst(t *testing.T) {
 	if !ok {
 		t.Fatal("quit confirmation button hit missing")
 	}
-	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + 1})
+	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + region.h/2})
 	m = next.(model)
 	if cmd != nil || m.stopping || !m.quitAfterDownload || !canceled {
 		t.Fatalf("quit during download should stop the download first: cmd=%v stopping=%v quitAfterDownload=%v canceled=%v", cmd, m.stopping, m.quitAfterDownload, canceled)
@@ -430,7 +430,7 @@ func TestMouseLegacyKeepDismissesPrompt(t *testing.T) {
 	if !ok {
 		t.Fatal("legacy certificate keep button hit missing")
 	}
-	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + 1})
+	next, cmd := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonLeft, X: region.x + 1, Y: region.y + region.h/2})
 	m = next.(model)
 	if cmd == nil || m.legacyPrompt || !m.legacyChecked || !m.starting {
 		t.Fatalf("mouse legacy keep should dismiss the prompt: cmd=%v prompt=%v checked=%v starting=%v", cmd, m.legacyPrompt, m.legacyChecked, m.starting)

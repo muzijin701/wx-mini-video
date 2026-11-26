@@ -1,7 +1,7 @@
 ﻿# 下载、校验并解出随包 ffmpeg（Windows 完整包构建用）。
 # 固定来源：gyan.dev 9.0.2 essentials（GPLv3），SHA-256 与 internal/minidownload/ffmpeg.go 保持一致。
 param(
-    [string]$CacheDir = (Join-Path $PSScriptRoot '..\dist\ffmpeg-cache'),
+    [string]$CacheDir = (Join-Path $PSScriptRoot '..\..\dist\ffmpeg-cache'),
     [Parameter(Mandatory = $true)]
     [string]$OutputDir
 )

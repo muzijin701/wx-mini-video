@@ -10,13 +10,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/app"
-	"wx_channel/internal/config"
-	"wx_channel/internal/interceptor"
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/app"
+	"github.com/MuZiJin701/wx-mini-video/internal/config"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 type targetProxyContext struct{ appID string }

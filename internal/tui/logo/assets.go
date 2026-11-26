@@ -9,45 +9,58 @@ import (
 	"sync"
 )
 
-// logoPNG is embedded from the shared brand asset (reused from the reference
-// project). It stays inside the binary and is not copied into release
-// directories.
+// 个人紫色狸花猫图标（全身透明底主标识浅色 / 深色版本），通过 go:embed 编译进二进制。
 //
-//go:embed assets/logo.png
-var logoPNG []byte
+//go:embed assets/logo-light.png
+var logoLightPNG []byte
+
+//go:embed assets/logo-dark.png
+var logoDarkPNG []byte
+
+type cachedLogo struct {
+	once sync.Once
+	img  *image.RGBA
+	err  error
+}
 
 var (
-	logoOnce  sync.Once
-	logoImage *image.RGBA
-	logoErr   error
+	lightLogo cachedLogo
+	darkLogo  cachedLogo
 )
 
-// decodeLogo decodes the embedded 512x512 RGBA brand mark once. The returned
-// image uses image.RGBA's premultiplied alpha representation.
-func decodeLogo() (*image.RGBA, error) {
-	logoOnce.Do(func() {
-		decoded, err := png.Decode(bytes.NewReader(logoPNG))
+// decodeLogo 解码内置 512x512 RGBA 个人品牌图标（按浅色/深色主题选择变体）。
+func decodeLogo(dark bool) (*image.RGBA, error) {
+	entry := &lightLogo
+	raw := logoLightPNG
+	if dark {
+		entry = &darkLogo
+		raw = logoDarkPNG
+	}
+	entry.once.Do(func() {
+		decoded, err := png.Decode(bytes.NewReader(raw))
 		if err != nil {
-			logoErr = err
+			entry.err = err
 			return
 		}
 		if rgba, ok := decoded.(*image.RGBA); ok {
-			logoImage = rgba
+			entry.img = rgba
 			return
 		}
 		bounds := decoded.Bounds()
 		rgba := image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
 		draw.Draw(rgba, rgba.Bounds(), decoded, bounds.Min, draw.Src)
-		logoImage = rgba
+		entry.img = rgba
 	})
-	return logoImage, logoErr
+	return entry.img, entry.err
 }
 
-// LogoSize reports the dimensions of the embedded brand asset. It is useful
-// for diagnostics and tests; the asset is expected to be 512x512.
+// LogoSize 报告内置图标尺寸（预期浅色、深色均为 512x512）。
 func LogoSize() (width, height int, err error) {
-	img, err := decodeLogo()
+	img, err := decodeLogo(true)
 	if err != nil {
+		return 0, 0, err
+	}
+	if _, err := decodeLogo(false); err != nil {
 		return 0, 0, err
 	}
 	bounds := img.Bounds()

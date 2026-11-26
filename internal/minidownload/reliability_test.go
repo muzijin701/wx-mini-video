@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 func TestDirectDownloadNeverMixesSameNamedResources(t *testing.T) {

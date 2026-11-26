@@ -7,27 +7,14 @@ import (
 	"sync"
 )
 
-// DefaultBackground is the dark panel colour from the design tokens. Callers
-// that follow the active theme should call SetBackground.
-var DefaultBackground = [3]uint8{0x28, 0x3e, 0x2c}
+// DefaultBackground is the dark canvas colour from the violet design tokens.
+// Callers that follow the active theme should call SetBackground.
+var DefaultBackground = [3]uint8{0x14, 0x12, 0x1E}
 
 // Painter is an io.Writer for tea.WithOutput. It forwards every renderer
 // write unchanged and then appends the logo image sequence, if a bitmap
 // placement is enabled and configured. All state is mutex-protected because
 // Bubble Tea's render goroutine and the model goroutine share the Painter.
-//
-// Painter also exposes Fd, Read and Close so it satisfies the terminal file
-// interface that Bubble Tea uses for its output. Without Fd, tea.WithOutput
-// would treat the painter as a non-TTY and silently stop sending
-// WindowSizeMsg and stop enabling VT processing on Windows.
-//
-// Painter has no knowledge of overlays: the image is appended after the whole
-// frame, so a caller whose overlay covers the logo rectangle must disable
-// drawing (or move the placement) while that overlay is visible. Sixel has no
-// delete command, so a moved or shrunken Sixel placement relies on the next
-// full repaint or on leaving the alternate screen. As a safety net, Write
-// disables drawing and deletes a kitty placement when it sees the alt-screen
-// exit sequence, so a forgotten Close cannot leave a placement behind.
 type Painter struct {
 	mu         sync.Mutex
 	out        io.Writer
@@ -40,6 +27,18 @@ type Painter struct {
 	cols         int
 	rows         int
 	background   [3]uint8
+	dark         bool
+
+	lastDrawn    bool
+	lastRow      int
+	lastCol      int
+	lastCols     int
+	lastRows     int
+	pendingErase bool
+	eraseRow     int
+	eraseCol     int
+	eraseCols    int
+	eraseRows    int
 
 	pendingClear bool
 	cacheReady   bool
@@ -51,6 +50,7 @@ type paintKey struct {
 	cols       int
 	rows       int
 	background [3]uint8
+	dark       bool
 	protocol   Protocol
 	cellWidth  int
 	cellHeight int
@@ -63,20 +63,25 @@ func NewPainter(out io.Writer, capability Capability) *Painter {
 		out:        out,
 		capability: capability,
 		background: DefaultBackground,
+		dark:       true,
 	}
 }
 
 // SetEnabled toggles bitmap output. Disabling a kitty placement deletes it
-// immediately; Sixel has no deletion command, so its pixels disappear when
-// the caller repaints or leaves the alternate screen.
+// immediately; disabling a previously drawn Sixel placement schedules a cell
+// erase before the next frame so overlays never leave pixel residue.
 func (p *Painter) SetEnabled(enabled bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.enabled == enabled {
 		return
 	}
-	if !enabled && p.capability.Protocol == ProtocolKitty {
-		p.writeClearLocked()
+	if !enabled {
+		if p.capability.Protocol == ProtocolKitty {
+			p.writeClearLocked()
+		} else if p.capability.Protocol == ProtocolSixel && p.lastDrawn {
+			p.scheduleSixelEraseLocked()
+		}
 	}
 	p.enabled = enabled
 	p.pendingClear = false
@@ -90,6 +95,8 @@ func (p *Painter) SetPlacement(row, col, cols, rows int) {
 	if row < 0 || col < 0 || cols <= 0 || rows <= 0 {
 		if p.hasPlacement && p.enabled && p.capability.Protocol == ProtocolKitty {
 			p.writeClearLocked()
+		} else if p.capability.Protocol == ProtocolSixel && p.lastDrawn {
+			p.scheduleSixelEraseLocked()
 		}
 		p.hasPlacement = false
 		p.pendingClear = false
@@ -100,9 +107,12 @@ func (p *Painter) SetPlacement(row, col, cols, rows int) {
 	changed := !hadPlacement || p.row != row || p.col != col || p.cols != cols || p.rows != rows
 	p.row, p.col, p.cols, p.rows = row, col, cols, rows
 	p.hasPlacement = true
-	if changed && hadPlacement && p.enabled && p.capability.Protocol == ProtocolKitty {
-		// A new placement may leave the previous image at the old coordinates.
-		p.pendingClear = true
+	if changed && hadPlacement && p.enabled {
+		if p.capability.Protocol == ProtocolKitty {
+			p.pendingClear = true
+		} else if p.capability.Protocol == ProtocolSixel && p.lastDrawn {
+			p.scheduleSixelEraseLocked()
+		}
 	}
 }
 
@@ -118,9 +128,18 @@ func (p *Painter) SetBackground(background [3]uint8) {
 	p.invalidateCacheLocked()
 }
 
-// Write forwards a renderer frame and then appends the image sequence. Image
-// errors are swallowed: a terminal that stops accepting graphics must not take
-// down the text UI. The frame write result is returned unchanged.
+// SetDark switches between the dark and light logo assets and invalidates cache.
+func (p *Painter) SetDark(dark bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.dark == dark {
+		return
+	}
+	p.dark = dark
+	p.invalidateCacheLocked()
+}
+
+// Write forwards a renderer frame and then appends the image sequence.
 func (p *Painter) Write(frame []byte) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -133,14 +152,21 @@ func (p *Painter) Write(frame []byte) (int, error) {
 		p.pendingClear = false
 	}
 
-	// Bubble Tea writes the alt-screen exit sequence through this writer. If
-	// the caller forgot Close, stop drawing here and delete a kitty placement
-	// before the alt screen (and its image) goes away.
-	if isAltScreenExit(frame) {
+	altExit := isAltScreenExit(frame)
+	if altExit {
 		p.writeClearLocked()
 		p.enabled = false
 		p.hasPlacement = false
 		p.pendingClear = false
+		p.pendingErase = false
+		p.lastDrawn = false
+	} else if p.pendingErase {
+		p.pendingErase = false
+		if p.capability.Protocol == ProtocolSixel {
+			if seq := sixelEraseSequence(p.eraseRow, p.eraseCol, p.eraseCols, p.eraseRows, p.background); len(seq) > 0 {
+				_, _ = p.out.Write(seq)
+			}
+		}
 	}
 
 	written, err := p.out.Write(frame)
@@ -159,12 +185,14 @@ func (p *Painter) Write(frame []byte) (int, error) {
 		return written, nil
 	}
 	_, _ = p.out.Write(drawSequence(p.row, p.col, logoBytes))
+	if p.capability.Protocol == ProtocolSixel {
+		p.lastDrawn = true
+		p.lastRow, p.lastCol, p.lastCols, p.lastRows = p.row, p.col, p.cols, p.rows
+	}
 	return written, nil
 }
 
-// Close removes a kitty placement and disables drawing. It is idempotent and
-// is safe to call from the model before tea.Quit and again from main after the
-// program returns.
+// Close removes a kitty placement and disables drawing.
 func (p *Painter) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -174,12 +202,13 @@ func (p *Painter) Close() error {
 	p.enabled = false
 	p.hasPlacement = false
 	p.pendingClear = false
+	p.pendingErase = false
+	p.lastDrawn = false
 	p.invalidateCacheLocked()
 	return nil
 }
 
-// Fd lets Bubble Tea treat the painter's underlying output as a terminal. It
-// returns an invalid descriptor when the wrapped writer is not terminal-like.
+// Fd lets Bubble Tea treat the painter's underlying output as a terminal.
 func (p *Painter) Fd() uintptr {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -189,8 +218,7 @@ func (p *Painter) Fd() uintptr {
 	return ^uintptr(0)
 }
 
-// Read exists only to satisfy the term.File interface. Bubble Tea never reads
-// from its output; a wrapped reader is forwarded for completeness.
+// Read exists only to satisfy the term.File interface.
 func (p *Painter) Read(buffer []byte) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -198,6 +226,15 @@ func (p *Painter) Read(buffer []byte) (int, error) {
 		return reader.Read(buffer)
 	}
 	return 0, errors.New("logo: painter output is not readable")
+}
+
+func (p *Painter) scheduleSixelEraseLocked() {
+	p.pendingErase = true
+	p.eraseRow = p.lastRow
+	p.eraseCol = p.lastCol
+	p.eraseCols = p.lastCols
+	p.eraseRows = p.lastRows
+	p.lastDrawn = false
 }
 
 func (p *Painter) canDrawLocked() bool {
@@ -209,6 +246,7 @@ func (p *Painter) encodedLocked() []byte {
 		cols:       p.cols,
 		rows:       p.rows,
 		background: p.background,
+		dark:       p.dark,
 		protocol:   p.capability.Protocol,
 		cellWidth:  p.capability.CellWidth,
 		cellHeight: p.capability.CellHeight,
@@ -220,7 +258,7 @@ func (p *Painter) encodedLocked() []byte {
 	p.cacheReady = true
 	p.cacheKey = key
 	p.cached = nil
-	encoded, err := p.capability.EncodeLogo(p.cols, p.rows, p.background)
+	encoded, err := p.capability.EncodeLogoForTheme(p.cols, p.rows, p.background, p.dark)
 	if err != nil {
 		return nil
 	}

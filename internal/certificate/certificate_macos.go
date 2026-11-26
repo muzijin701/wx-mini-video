@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 var macCertificateCommand = system.RunMacCommand

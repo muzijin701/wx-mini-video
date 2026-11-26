@@ -7,11 +7,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/app"
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/ui"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/app"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 // state.go 汇总目标选择、候选刷新、媒体动作与外观下拉，供键盘与鼠标路径共用。

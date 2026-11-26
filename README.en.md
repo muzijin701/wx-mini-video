@@ -29,18 +29,9 @@ The app starts discovering Mini Programs automatically. On first use, follow its
 
 Open the Mini Program in **desktop WeChat**, then click its entry under “已发现的小程序” (discovered Mini Programs).
 
-- You do not need to know its AppID in advance. An AppID is the Mini Program's identifier.
+- You do not need to know its AppID in advance. An AppID is the Mini Program's identifier, and a detected domain hint is shown beside it when available.
 - If several entries appear, close other Mini Programs, reopen the one you want, and look for the new or recently updated identifier.
 - If you already know the AppID, type it and press `Enter`.
-
-<details>
-<summary>See a screenshot of choosing a Mini Program</summary>
-
-This screenshot shows the Windows app running. Your list depends on the Mini Programs you open.
-
-![Choose a Mini Program by clicking its discovered entry](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/首页.png)
-
-</details>
 
 ### 3. Reload the content and download
 
@@ -50,11 +41,11 @@ Click a resource, then “下载” (Download). Use the image, video, or audio t
 
 `✓` means the source matches the selected Mini Program. `?` means the source is unconfirmed, so check the content before downloading.
 
-![Windows app screenshot: the selected resource is marked as downloaded, with its saved location below](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/下载完成.png)
+![Windows app screenshot](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/screenshot.png)
 
 ### 4. Find your files and quit
 
-Click “打开目录” (Open folder). By default, files are saved in `downloads` beside the app, grouped by **Mini Program AppID → media type**.
+Click “打开目录” (Open folder). By default, files are saved in `downloads` beside the app, grouped by **Mini Program AppID → media type**; detected media titles are used in filenames, falling back to type, domain, and candidate ID (only live recordings keep timestamps).
 
 When finished, click “退出” (Quit) at the bottom right or press `Ctrl+Q` to restore your previous system proxy settings. If a download or recording is active, confirm the prompt and wait for it to finish saving.
 
@@ -65,13 +56,6 @@ Choose a resource under “直播” (Live) and click “下载” (Download) to
 **A live stream appearing in the list does not mean it is being recorded.** Once started, its row shows “录制中” (recording), with the recorded size below.
 
 Live streams do not finish downloading like ordinary videos. **Continuous recording supports HTTP-FLV only; HLS/m3u8 live recording is not supported.** m3u8 resources appear under “分段媒体” (Segmented media) and are downloaded and merged from the current playlist.
-
-<details>
-<summary>See a screenshot of live recording</summary>
-
-![Windows app screenshot: the resource is marked as recording, with the recorded size and Stop hint below](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/直播录制.png)
-
-</details>
 
 ## Common actions
 
@@ -104,6 +88,6 @@ The mouse wheel scrolls the resource list without changing your selection. “�
 
 Before upgrading, quit the old app and keep your `wx-mini-video.yaml` settings and `downloads` folder.
 
-[Troubleshooting and configuration (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/wx-mini-video-knowledge.md#排障) · [Change log (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [Third-party components and licenses](THIRD-PARTY-NOTICES.md)
+[Troubleshooting and configuration (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/guide.md#排障) · [Change log (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [Third-party components and licenses](THIRD-PARTY-NOTICES.md)
 
 Only save content you have the right to access, and follow applicable laws and platform rules.

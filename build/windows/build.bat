@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set ROOT_DIR=%~dp0..
+set ROOT_DIR=%~dp0..\..
 for %%I in ("%ROOT_DIR%") do set ROOT_DIR=%%~fI
 set DIST_DIR=%ROOT_DIR%\dist\wx-mini-video-windows-amd64
 set ZIP_PATH=%ROOT_DIR%\dist\wx-mini-video-windows-amd64.zip
@@ -22,7 +22,7 @@ call :compile
 if errorlevel 1 exit /b 1
 if defined WXMV_FFMPEG_DIR goto bundled_local
 echo Preparing bundled ffmpeg 9.0.2...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\build\fetch-ffmpeg.ps1" -CacheDir "%FFMPEG_CACHE%" -OutputDir "%DIST_DIR%\ffmpeg"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\build\windows\fetch-ffmpeg.ps1" -CacheDir "%FFMPEG_CACHE%" -OutputDir "%DIST_DIR%\ffmpeg"
 if errorlevel 1 exit /b 1
 goto ffmpeg_ready
 :bundled_local
@@ -45,7 +45,7 @@ copy /Y "%ROOT_DIR%\THIRD-PARTY-NOTICES.md" "%DIST_DIR%\THIRD-PARTY-NOTICES.md" 
 if errorlevel 1 exit /b 1
 call :package
 if errorlevel 1 exit /b 1
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\build\verify-package.ps1" -ZipPath "%ZIP_PATH%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\build\windows\verify-package.ps1" -ZipPath "%ZIP_PATH%"
 if errorlevel 1 exit /b 1
 echo Done: %ZIP_PATH%
 exit /b 0
@@ -53,7 +53,7 @@ exit /b 0
 :compile
 echo Generating Windows icon resources...
 pushd "%ROOT_DIR%"
-go run ./build/genicon
+go run ./build/windows/genicon
 if errorlevel 1 (
     popd
     exit /b 1
@@ -64,7 +64,9 @@ set CGO_ENABLED=0
 set GOOS=windows
 set GOARCH=amd64
 go build -trimpath -ldflags="-s -w -X main.Mode=release" -o "%DIST_DIR%\wx-mini-video.exe" "%ROOT_DIR%"
-if errorlevel 1 exit /b 1
+set BUILD_ERR=%errorlevel%
+if exist "%ROOT_DIR%\wx-mini-video_windows_amd64.syso" del /Q "%ROOT_DIR%\wx-mini-video_windows_amd64.syso"
+if not "%BUILD_ERR%"=="0" exit /b %BUILD_ERR%
 copy /Y "%ROOT_DIR%\internal\config\config.template.yaml" "%DIST_DIR%\wx-mini-video.yaml" >nul
 if errorlevel 1 exit /b 1
 copy /Y "%ROOT_DIR%\README.md" "%DIST_DIR%\README.md" >nul

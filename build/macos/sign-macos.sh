@@ -4,14 +4,14 @@ set -euo pipefail
 [[ "$(uname -s)" == Darwin ]] || { echo 'Signing requires macOS.' >&2; exit 1; }
 : "${MACOS_SIGN_IDENTITY:?Set the Developer ID Application identity name}"
 : "${MACOS_NOTARY_PROFILE:?Set the notarytool keychain profile name}"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PACKAGE="$ROOT/dist/wx-mini-video-macos"
 APP="$PACKAGE/wx-mini-video.app"
 [[ -f "$APP/Contents/MacOS/wx-mini-video" ]] || { echo 'Run go run ./build/macos first.' >&2; exit 1; }
 for item in ffmpeg/ffmpeg-amd64 ffmpeg/ffmpeg-arm64 ffmpeg/LICENSE.txt THIRD-PARTY-NOTICES.md; do
     [[ -f "$PACKAGE/$item" && ! -L "$PACKAGE/$item" ]] || { echo "Missing or symlinked package file: $item" >&2; exit 1; }
 done
-python3 "$ROOT/build/verify-release-sources.py"
+python3 "$ROOT/build/ffmpeg/verify-release-sources.py"
 [[ -z "$(find "$APP" -type l -print -quit)" ]] || { echo 'Unexpected symlink inside app.' >&2; exit 1; }
 while IFS= read -r -d '' item; do
     case "${item#"$APP"/}" in
@@ -20,7 +20,7 @@ while IFS= read -r -d '' item; do
     esac
 done < <(find "$APP" -type f -print0)
 
-codesign --force --options runtime --timestamp --entitlements "$ROOT/build/macos-entitlements.plist" --sign "$MACOS_SIGN_IDENTITY" "$APP"
+codesign --force --options runtime --timestamp --entitlements "$ROOT/build/macos/macos-entitlements.plist" --sign "$MACOS_SIGN_IDENTITY" "$APP"
 codesign --verify --deep --strict "$APP"
 WORK="$(mktemp -d "$ROOT/dist/.macos-sign-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT

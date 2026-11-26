@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"wx_channel/internal/app"
-	"wx_channel/internal/config"
-	"wx_channel/internal/tui"
-	"wx_channel/pkg/certificate"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/app"
+	"github.com/MuZiJin701/wx-mini-video/internal/config"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 var AppVer = "v0.2.0"

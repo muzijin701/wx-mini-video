@@ -27,18 +27,9 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 
 在**电脑版微信**中打开目标小程序，然后点击程序“已发现的小程序”列表中对应的一项。
 
-- 不知道 AppID 也没关系，先等程序发现即可。AppID 就是小程序的编号。
+- 不知道 AppID 也没关系，先等程序发现即可。AppID 就是小程序的编号；如果已捕捉到访问域名，列表旁也会附带域名提示，方便分辨。
 - 列表有多项时，先关闭其他小程序，再重新打开目标小程序，观察新出现或最近更新的编号。
 - 已经知道 AppID，可以直接输入，再按 `Enter` 确认。
-
-<details>
-<summary>查看选择小程序的运行截图</summary>
-
-下图为 Windows 版实际运行截图，列表取决于你打开的小程序。
-
-![选择小程序：点击已发现列表中的对应项](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/首页.png)
-
-</details>
 
 ### 3. 重新打开内容，点击下载
 
@@ -48,11 +39,11 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 
 `✓` 表示来源与所选小程序匹配；`?` 表示来源还未确认，下载前请核对内容。
 
-![Windows 版下载完成截图：所选资源显示“已下载”，下方显示保存位置](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/下载完成.png)
+![Windows 版界面截图](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/screenshot.png)
 
 ### 4. 打开文件夹，正常退出
 
-点“打开目录”查看文件。默认保存在程序旁的 `downloads` 文件夹，按**小程序编号 → 图片、视频等类型**分类存放。
+点“打开目录”查看文件。默认保存在程序旁的 `downloads` 文件夹，按**小程序编号 → 图片、视频等类型**分类存放；识别到资源名称时会直接用作文件名前缀，未识别到名称时使用类型、域名与短编号（仅直播录制保留时间戳）。
 
 用完点右下角“退出”，或按 `Ctrl+Q`，让程序恢复原来的系统代理设置。下载或录制中退出时，请按提示确认并等待保存完成。
 
@@ -63,13 +54,6 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 **列表里出现直播资源，并不代表已经开始录制。** 开始后，资源状态会显示“录制中”，下方显示已录大小。
 
 直播不会像普通视频一样自动下载完。**目前仅支持 HTTP-FLV 直播录制；m3u8/HLS 直播不能持续录制。** m3u8 资源在“分段媒体”中，按当前播放列表下载并合并。
-
-<details>
-<summary>查看直播录制的运行截图</summary>
-
-![Windows 版直播录制截图：资源显示“录制中”，下方显示已录大小和停止提示](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/直播录制.png)
-
-</details>
 
 ## 常用操作
 
@@ -102,6 +86,6 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 
 升级前先退出旧程序，并保留自己的 `wx-mini-video.yaml` 配置和 `downloads` 文件夹。
 
-[详细排障与配置](https://github.com/MuZiJin701/wx-mini-video/blob/main/wx-mini-video-knowledge.md#排障) · [更新记录](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [第三方组件与许可](THIRD-PARTY-NOTICES.md)
+[详细排障与配置](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/guide.md#排障) · [更新记录](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [第三方组件与许可](THIRD-PARTY-NOTICES.md)
 
 仅保存你有权获取的内容，并遵守相关法律和平台规则。

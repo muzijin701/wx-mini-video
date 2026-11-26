@@ -90,3 +90,35 @@ func TestObserveIgnoresEmptyAppID(t *testing.T) {
 		t.Fatalf("Programs() = %#v, want no entry for empty AppID", got)
 	}
 }
+
+func TestObserveRequestExtractsBusinessDomainHint(t *testing.T) {
+	store := NewStore()
+	// 通用微信域请求更多，但只要存在业务域名，优先显示真实业务域名。
+	for range 5 {
+		store.ObserveRequest("wx123", "https://res.wx.qq.com/mmbiz/a.png")
+	}
+	store.ObserveRequest("wx123", "https://v3.eastbuy.com/vod/demo.mp4")
+	store.ObserveRequest("wx123", "https://live.eastbuy.com/stream.flv")
+
+	if got := store.ProgramDomain("wx123"); got != "eastbuy.com" {
+		t.Fatalf("ProgramDomain(wx123) = %q, want eastbuy.com", got)
+	}
+	programs := store.Programs()
+	if len(programs) != 1 || programs[0].Domain != "eastbuy.com" {
+		t.Fatalf("Programs() = %#v, want domain eastbuy.com", programs)
+	}
+
+	// 仅出现通用 CDN 域时兜底显示该域，不显示 servicewechat.com 或 IP。
+	store.ObserveRequest("wx456", "https://127.0.0.1:8080/local.mp4")
+	store.ObserveRequest("wx456", "https://servicewechat.com/wx456/1/page-frame.html")
+	store.ObserveRequest("wx456", "https://wx.qlogo.cn/mmhead/avatar.jpg")
+	if got := store.ProgramDomain("wx456"); got != "qlogo.cn" {
+		t.Fatalf("ProgramDomain(wx456) = %q, want qlogo.cn", got)
+	}
+
+	// 多段国家域名保留完整可注册域。
+	store.ObserveRequest("wx789", "https://vod.example.com.cn/lesson.mp4")
+	if got := store.ProgramDomain("wx789"); got != "example.com.cn" {
+		t.Fatalf("ProgramDomain(wx789) = %q, want example.com.cn", got)
+	}
+}

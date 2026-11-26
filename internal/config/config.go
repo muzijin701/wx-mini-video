@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	"wx_channel/internal/miniprogram"
-	"wx_channel/pkg/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
 )
 
 type Config struct {

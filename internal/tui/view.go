@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 // view.go 负责整体布局：品牌区、渐变色带、主区、底栏与覆盖层。
@@ -109,9 +109,17 @@ func (m model) logoSize(metrics ui.Metrics) (cols, rows int, ok bool) {
 	if metrics.Height < 20 || metrics.Width < 60 {
 		return 0, 0, false
 	}
-	rows = 3
-	if metrics.Width >= ui.CompactWidth && !metrics.Short {
+	switch {
+	case metrics.Height >= 36 && metrics.Width >= ui.CompactWidth:
+		rows = 7
+	case metrics.Height >= 28 && metrics.Width >= ui.CompactWidth:
+		rows = 6
+	case metrics.Height >= 24 && metrics.Width >= ui.CompactWidth:
 		rows = 5
+	case metrics.Height >= 22:
+		rows = 4
+	default:
+		rows = 3
 	}
 	cellWidth, cellHeight := m.logoCap.CellWidth, m.logoCap.CellHeight
 	if cellWidth <= 0 || cellHeight <= 0 {
@@ -124,13 +132,13 @@ func (m model) logoSize(metrics ui.Metrics) (cols, rows int, ok bool) {
 	if cols > 24 {
 		cols = 24
 	}
-	if metrics.ContentWidth < cols+ui.BrandGap+40 {
+	if metrics.ContentWidth < cols+ui.BrandGap+36 {
 		return 0, 0, false
 	}
 	return cols, rows, true
 }
 
-// syncLogo 把当前 logo 矩形同步给输出层；覆盖层或强制退出时关闭绘制。
+// syncLogo 把当前 logo 矩形同步给输出层；覆盖层或退出时关闭绘制。
 func (m model) syncLogo(metrics ui.Metrics) {
 	if m.painter == nil {
 		return
@@ -197,6 +205,9 @@ func (m model) brandHeight(metrics ui.Metrics) int {
 		if metrics.Height < 20 {
 			return 2
 		}
+		if _, rows, ok := m.logoSize(metrics); ok && rows > 3 {
+			return rows
+		}
 		return 3
 	}
 	height := 5
@@ -215,14 +226,7 @@ func (m model) renderBrand(startY int, metrics ui.Metrics) []string {
 	}
 
 	imageCols, imageRows, showImage := m.logoSize(metrics)
-	showMark := !showImage && !metrics.Narrow && metrics.Height >= 20
-	var mark []string
-	markWidth := 0
-	if showMark {
-		mark = ui.BrandMark(m.st.palette)
-		markWidth = ui.BrandMarkWidth + ui.BrandGap
-	}
-	leftWidth := markWidth
+	leftWidth := 0
 	if showImage {
 		leftWidth = imageCols + ui.BrandGap
 	}
@@ -233,44 +237,45 @@ func (m model) renderBrand(startY int, metrics ui.Metrics) []string {
 		segY = startY
 	}
 
-	textLines := []string{
-		m.st.kicker.Render("WX-MINI-VIDEO / 媒体嗅探"),
+	contentHeight := height
+	if !metrics.Short {
+		contentHeight = height - 2
+	}
+	if showImage && contentHeight < imageRows {
+		contentHeight = imageRows
+	}
+
+	allTextLines := []string{
+		m.st.kicker.Render("WX-MINI-VIDEO · 媒体嗅探"),
 		m.st.title.Render("微信小程序媒体下载"),
-		m.st.note.Render("保存小程序里值得留下的图片与音视频"),
+		m.st.note.Render("自动发现小程序并保存图片、音视频与直播流"),
 	}
-	if metrics.Short {
-		textLines = []string{m.st.title.Render("微信小程序媒体下载")}
-	} else if metrics.Compact {
-		textLines = textLines[:2]
+	var textLines []string
+	switch {
+	case contentHeight >= 5 && !metrics.Compact:
+		textLines = allTextLines
+	case contentHeight >= 4:
+		textLines = allTextLines[1:]
+	default:
+		textLines = []string{allTextLines[1]}
 	}
+	if contentHeight < len(textLines) {
+		contentHeight = len(textLines)
+	}
+	textOffset := max(0, (contentHeight-len(textLines))/2)
 
 	rows := make([]string, 0, height)
 	if !metrics.Short {
 		rows = append(rows, m.blankLine())
 	}
-	contentHeight := height
-	if !metrics.Short {
-		contentHeight = height - 2
-	}
-	if contentHeight < len(textLines) {
-		contentHeight = len(textLines)
-	}
-	if showImage && contentHeight < imageRows {
-		contentHeight = imageRows
-	}
 	for i := 0; i < contentHeight; i++ {
 		left := ""
-		switch {
-		case showImage:
-			left = m.spaces(leftWidth)
-		case showMark && i < len(mark):
-			left = mark[i] + m.spaces(ui.BrandGap)
-		case showMark:
+		if showImage {
 			left = m.spaces(leftWidth)
 		}
 		text := ""
-		if i < len(textLines) {
-			text = textLines[i]
+		if idx := i - textOffset; idx >= 0 && idx < len(textLines) {
+			text = textLines[idx]
 		}
 		right := ""
 		rightWidth := 0
@@ -308,7 +313,7 @@ func (m model) renderBrand(startY int, metrics ui.Metrics) []string {
 	return rows
 }
 
-// appearanceControl 渲染品牌区右侧的外观下拉控件（单行 chip）。
+// appearanceControl 渲染品牌区右侧的外观下拉控件（单行扁平 chip）。
 func (m model) appearanceControl(metrics ui.Metrics) (string, int) {
 	if metrics.Narrow {
 		return "", 0
@@ -401,9 +406,9 @@ func (m model) renderRibbon(metrics ui.Metrics) string {
 
 func (m model) footerHeight(metrics ui.Metrics) int {
 	if metrics.Short {
-		return 3
+		return 1
 	}
-	return 4
+	return 2
 }
 
 func (m model) renderFooter() []string {
@@ -413,35 +418,21 @@ func (m model) renderFooter() []string {
 	padX := metrics.BrandPadX
 
 	linkText := "GitHub · MuZiJin701/wx-mini-video ↗"
-	linkStyle := m.st.link
 	quitLabel := "退出 · Ctrl+Q"
-	quitWidth := buttonWidth(quitLabel, 16)
+	quitWidth := buttonWidth(quitLabel, 14)
 
-	quitLines := m.buttonLines(quitLabel, buttonSecondary, false, m.isHover(hitActionQuit, 0), quitWidth)
+	quitLine := m.buttonLines(quitLabel, buttonSecondary, false, m.isHover(hitActionQuit, 0), quitWidth)[0]
 	rows := make([]string, 0, height)
 	if !metrics.Short {
 		rows = append(rows, m.blankLine())
 	}
-	buttonTop := top + len(rows)
-	for i := 0; i < len(quitLines); i++ {
-		row := m.blankLine()
-		rightX := metrics.Width - padX - quitWidth
-		right := quitLines[i]
-		var left string
-		if i == 1 {
-			link := linkStyle.Render(ui.Truncate(linkText, rightX-padX-1))
-			left = link
-			m.hits.add(padX, buttonTop+1, ui.Width(link), 1, hitGitHub, 0)
-		}
-		leftWidth := ui.Width(left)
-		gap := rightX - padX - leftWidth
-		if gap < 0 {
-			gap = 0
-		}
-		row = m.padLine(m.spaces(padX), left, m.spaces(gap), right, m.spaces(padX))
-		rows = append(rows, row)
-	}
-	m.hits.add(metrics.Width-padX-quitWidth, buttonTop, quitWidth, len(quitLines), hitActionQuit, 0)
+	buttonRow := top + len(rows)
+	rightX := metrics.Width - padX - quitWidth
+	link := m.st.link.Render(ui.Truncate(linkText, max(8, rightX-padX-1)))
+	m.hits.add(padX, buttonRow, ui.Width(link), 1, hitGitHub, 0)
+	gap := max(0, rightX-padX-ui.Width(link))
+	rows = append(rows, m.padLine(m.spaces(padX), link, m.spaces(gap), quitLine, m.spaces(padX)))
+	m.hits.add(rightX, buttonRow, quitWidth, 1, hitActionQuit, 0)
 	for len(rows) < height {
 		rows = append(rows, m.blankLine())
 	}
@@ -457,9 +448,8 @@ func (m model) viewStopError() string {
 	message := "系统代理可能仍指向本工具，网络可能不可用。"
 	retryLabel := "重试恢复并退出 · r"
 	forceLabel := "强制退出 · f"
-	retryWidth := buttonWidth(retryLabel, 20)
-	forceWidth := buttonWidth(forceLabel, 16)
-	compact := metrics.Short
+	retryWidth := buttonWidth(retryLabel, 18)
+	forceWidth := buttonWidth(forceLabel, 14)
 	lines := []string{
 		"",
 		m.st.errStyle.Render("退出未完成：恢复系统代理或关闭代理失败"),
@@ -467,22 +457,15 @@ func (m model) viewStopError() string {
 		m.st.text.Render(ui.Truncate(m.stopErr.Error(), metrics.Width-2*metrics.BrandPadX)),
 		"",
 		m.st.text.Render(message),
+		"",
 	}
 	buttonTop := len(lines)
-	if compact {
-		retry := m.chipText(retryLabel, hitStopRetry, true, true)
-		force := m.chipText(forceLabel, hitStopForce, false, true)
-		lines = append(lines, retry+" "+force)
-		m.hits.add(metrics.BrandPadX, buttonTop, ui.Width(retry), 1, hitStopRetry, 0)
-		m.hits.add(metrics.BrandPadX+ui.Width(retry)+1, buttonTop, ui.Width(force), 1, hitStopForce, 0)
-	} else {
-		retry := m.buttonLines(retryLabel, buttonPrimary, false, m.isHover(hitStopRetry, 0), retryWidth)
-		force := m.buttonLines(forceLabel, buttonSecondary, false, m.isHover(hitStopForce, 0), forceWidth)
-		rows := joinButtons(retry, force)
-		lines = append(lines, rows...)
-		m.hits.add(metrics.BrandPadX, buttonTop, retryWidth, 3, hitStopRetry, 0)
-		m.hits.add(metrics.BrandPadX+retryWidth+1, buttonTop, forceWidth, 3, hitStopForce, 0)
-	}
+	retry := m.buttonLines(retryLabel, buttonPrimary, false, m.isHover(hitStopRetry, 0), retryWidth)
+	force := m.buttonLines(forceLabel, buttonSecondary, false, m.isHover(hitStopForce, 0), forceWidth)
+	rows := m.joinButtons(retry, force)
+	lines = append(lines, rows...)
+	m.hits.add(metrics.BrandPadX, buttonTop, retryWidth, 1, hitStopRetry, 0)
+	m.hits.add(metrics.BrandPadX+retryWidth+1, buttonTop, forceWidth, 1, hitStopForce, 0)
 	lines = append(lines, "")
 	lines = append(lines, m.st.muted.Render(ui.Truncate("按 r 重试恢复并退出；按 f 明确强制退出（需要自行恢复网络设置）。", metrics.Width-2*metrics.BrandPadX)))
 	canvas := make([]string, 0, m.screenHeight())

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"wx_channel/pkg/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
 )
 
 type InterceptorServer struct {

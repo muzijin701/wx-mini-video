@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 // ErrRecordingStopped 表示用户停止直播录制；已录内容已保存为最终文件。
@@ -157,8 +157,9 @@ func OutputName(candidate miniprogram.Candidate, preferred string) string {
 	return safeOutputName(name)
 }
 
-// defaultOutputName 按「类型_YYYYMMDD-HHMMSS_候选ID前8位.扩展名」生成默认文件名。
-// 类型前缀取最终类型目录名：直播录制为 直播_，有限 FLV 为 视频_，分段媒体为 分段媒体_。
+// defaultOutputName 生成默认文件名：
+// 有真实资源标题或 URL 可读文件名时：普通资源为「短标题_候选ID前8位.扩展名」，直播录制保留时间戳「短标题_YYYYMMDD-HHMMSS_候选ID前8位.flv」。
+// 无标题时优先附加业务域名、普通资源不带时间：「类型_[域名_]候选ID前8位.扩展名」，直播录制「直播_[域名_]YYYYMMDD-HHMMSS_候选ID前8位.flv」。
 func defaultOutputName(candidate miniprogram.Candidate, startedAt time.Time) string {
 	kind := miniprogram.MediaKind(candidate)
 	suffix := ".mp4"
@@ -178,7 +179,61 @@ func defaultOutputName(candidate miniprogram.Candidate, startedAt time.Time) str
 	if token == "" {
 		token = "copy"
 	}
-	return miniprogram.TypeDir(kind) + "_" + startedAt.Format("20060102-150405") + "_" + token + suffix
+	titleStem := sanitizedTitleStem(candidate.Title)
+	if titleStem == "" {
+		titleStem = sanitizedTitleStem(miniprogram.ExtractURLTitle(candidate.URL))
+	}
+	if titleStem != "" {
+		if kind == "live" {
+			return titleStem + "_" + startedAt.Format("20060102-150405") + "_" + token + suffix
+		}
+		return titleStem + "_" + token + suffix
+	}
+	prefix := miniprogram.TypeDir(kind)
+	if domain, _ := miniprogram.ExtractBusinessDomain(candidate.URL); domain != "" {
+		if safeDomain := sanitizedTitleStem(domain); safeDomain != "" {
+			prefix += "_" + safeDomain
+		}
+	}
+	if kind == "live" {
+		return prefix + "_" + startedAt.Format("20060102-150405") + "_" + token + suffix
+	}
+	return prefix + "_" + token + suffix
+}
+
+const maxTitleStemRunes = 40
+
+// sanitizedTitleStem 把真实资源标题清洗为适合作为文件名前缀的短标题；
+// 清洗后为空、像 Windows 保留名或长度超限时截断至 40 个字符以内。
+func sanitizedTitleStem(title string) string {
+	fields := strings.Fields(strings.TrimSpace(title))
+	if len(fields) == 0 {
+		return ""
+	}
+	cleaned := strings.Join(fields, " ")
+	cleaned = strings.Map(func(r rune) rune {
+		if r < 32 || strings.ContainsRune(`<>:"/\|?*`, r) {
+			return '-'
+		}
+		return r
+	}, cleaned)
+	cleaned = strings.Trim(cleaned, ". -_")
+	if cleaned == "" {
+		return ""
+	}
+	runes := []rune(cleaned)
+	if len(runes) > maxTitleStemRunes {
+		cleaned = strings.TrimRight(string(runes[:maxTitleStemRunes]), ". -_")
+	}
+	if cleaned == "" {
+		return ""
+	}
+	upper := strings.ToUpper(cleaned)
+	if upper == "CON" || upper == "PRN" || upper == "AUX" || upper == "NUL" ||
+		(len(upper) == 4 && (strings.HasPrefix(upper, "COM") || strings.HasPrefix(upper, "LPT")) && upper[3] >= '1' && upper[3] <= '9') {
+		cleaned = "_" + cleaned
+	}
+	return cleaned
 }
 
 func safeOutputName(name string) string {
@@ -1158,7 +1213,16 @@ func (d *Downloader) finalizeOutputPath(candidate miniprogram.Candidate, preferr
 	}
 	name := base
 	if finalKind != initialKind && strings.TrimSpace(preferredName) == "" {
-		name = renameTypePrefix(name, initialKind, finalKind)
+		adjusted := candidate
+		adjusted.Live = finalKind == "live"
+		if finalKind != "live" && adjusted.Suffix == "" {
+			if ext := filepath.Ext(base); ext != "" {
+				adjusted.Suffix = ext
+			} else {
+				adjusted.Suffix = ".flv"
+			}
+		}
+		name = defaultOutputName(adjusted, now())
 	}
 	if finalKind == "live" && !strings.EqualFold(filepath.Ext(name), ".flv") {
 		name = strings.TrimSuffix(name, filepath.Ext(name)) + ".flv"
@@ -1179,15 +1243,6 @@ func (d *Downloader) finalizeOutputPath(candidate miniprogram.Candidate, preferr
 		return targetPath, currentName, fmt.Errorf("移动到 %s 失败: %w", finalPath, err)
 	}
 	return finalPath, finalName, nil
-}
-
-// renameTypePrefix 把默认文件名开头的类型前缀从初始类型改为最终类型（直播_ ↔ 视频_）。
-func renameTypePrefix(name, initialKind, finalKind string) string {
-	oldPrefix := miniprogram.TypeDir(initialKind) + "_"
-	if !strings.HasPrefix(name, oldPrefix) {
-		return name
-	}
-	return miniprogram.TypeDir(finalKind) + "_" + strings.TrimPrefix(name, oldPrefix)
 }
 
 func (p partialDownload) validator() string {

@@ -5,16 +5,16 @@ import (
 	"strconv"
 )
 
-// encodeSixel encodes an opaque image as a Sixel stream: a 64-color adaptive
-// palette, per-band color planes, and run-length compression for repeated
-// sixel characters. The stream has no absolute cursor movement.
+// encodeSixel encodes an opaque image as a Sixel stream: up to a 256-color
+// adaptive palette, per-band color planes, and run-length compression for
+// repeated sixel characters. The stream has no absolute cursor movement.
 func encodeSixel(img *image.RGBA) ([]byte, error) {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	if width <= 0 || height <= 0 {
 		return nil, ErrInvalidSize
 	}
-	palette, indexed := quantize64(img)
+	palette, indexed := quantizeSixel(img)
 
 	out := make([]byte, 0, width*height/4+1024)
 	out = append(out, "\x1bP0;1q\"1;1;"...)

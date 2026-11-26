@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"wx_channel/internal/config"
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/config"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 func TestConfiguredFFmpegPathKeepsExplicitConfig(t *testing.T) {

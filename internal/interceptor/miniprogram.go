@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 const (
@@ -53,9 +53,11 @@ func CreateMiniProgramInterceptorPlugin(target miniprogram.Target, store *minipr
 			rawURL := contextURLString(req.URL)
 			appID := requestAppID(req.Header)
 			unattributedGeneration := store.UnattributedGeneration()
-			target, generation := store.Observe(appID)
+			target, generation := store.ObserveRequest(appID, rawURL)
 			contentType := ctx.GetResponseHeader("Content-Type")
 			contentLength := responseContentLength(ctx)
+			contentDisposition := ctx.GetResponseHeader("Content-Disposition")
+			responseTitle := miniprogram.ExtractDispositionTitle(contentDisposition)
 			status := responseStatus(ctx)
 			domKind, domSuffix := miniprogram.Classify(contentType, rawURL)
 			live := miniprogram.LooksLikeLiveFLV(contentType, contentLength, rawURL)
@@ -72,7 +74,7 @@ func CreateMiniProgramInterceptorPlugin(target miniprogram.Target, store *minipr
 				decision = "drop:segment"
 			case domKind != "":
 				if confirmed {
-					addTargetResponseCandidate(store, dir, generation, target, appID, rawURL, contentType, contentLength, headers, domKind, domSuffix, live, ctx)
+					addTargetResponseCandidate(store, dir, generation, target, appID, rawURL, responseTitle, contentType, contentLength, headers, domKind, domSuffix, live, ctx)
 					decision = "admit-target"
 				} else if captureUnattributed {
 					// 未归属列表与目标无关：发现阶段（尚未确认目标）也收集，
@@ -80,6 +82,7 @@ func CreateMiniProgramInterceptorPlugin(target miniprogram.Target, store *minipr
 					store.AddUnattributedForGeneration(unattributedGeneration, miniprogram.Candidate{
 						SourceAppID:   appID,
 						Attribution:   miniprogram.AttributionUnattributed,
+						Title:         responseTitle,
 						URL:           rawURL,
 						SourceURL:     rawURL,
 						Source:        "response",
@@ -121,7 +124,7 @@ func CreateMiniProgramInterceptorPlugin(target miniprogram.Target, store *minipr
 				}
 			case confirmed:
 				// 未知二进制兜底：只有目标 AppID 匹配时才收未知文件，避免全量流量噪音。
-				fileDecision := tryUnknownBinaryCandidate(store, generation, target, appID, rawURL, status, contentType, contentLength, headers, ctx.GetResponseHeader("Content-Disposition"))
+				fileDecision := tryUnknownBinaryCandidate(store, generation, target, appID, rawURL, responseTitle, status, contentType, contentLength, headers, contentDisposition)
 				decision = fileDecision
 			case target.AppID == "":
 				decision = "drop:no-target"
@@ -148,11 +151,12 @@ func CreateMiniProgramInterceptorPlugin(target miniprogram.Target, store *minipr
 	}
 }
 
-func addTargetResponseCandidate(store *miniprogram.Store, dir string, generation uint64, target miniprogram.Target, sourceAppID, rawURL, contentType string, contentLength int64, headers map[string]string, kind, suffix string, live bool, ctx proxy.Context) {
+func addTargetResponseCandidate(store *miniprogram.Store, dir string, generation uint64, target miniprogram.Target, sourceAppID, rawURL, title, contentType string, contentLength int64, headers map[string]string, kind, suffix string, live bool, ctx proxy.Context) {
 	candidate := miniprogram.Candidate{
 		AppID:         target.AppID,
 		SourceAppID:   sourceAppID,
 		Attribution:   miniprogram.AttributionConfirmed,
+		Title:         title,
 		URL:           rawURL,
 		SourceURL:     rawURL,
 		Source:        "response",
@@ -202,7 +206,7 @@ func addJSONCandidates(store *miniprogram.Store, generation uint64, target minip
 
 // tryUnknownBinaryCandidate 在目标归属成立时把满足大小阈值的未知二进制收为 "file" 候选。
 // 返回写入 debug 日志的决定；不缓存、不自动下载。
-func tryUnknownBinaryCandidate(store *miniprogram.Store, generation uint64, target miniprogram.Target, sourceAppID, rawURL string, status int, contentType string, contentLength int64, headers map[string]string, contentDisposition string) string {
+func tryUnknownBinaryCandidate(store *miniprogram.Store, generation uint64, target miniprogram.Target, sourceAppID, rawURL, title string, status int, contentType string, contentLength int64, headers map[string]string, contentDisposition string) string {
 	if status != http.StatusOK && status != http.StatusPartialContent {
 		return "drop:status"
 	}
@@ -217,6 +221,7 @@ func tryUnknownBinaryCandidate(store *miniprogram.Store, generation uint64, targ
 		AppID:         target.AppID,
 		SourceAppID:   sourceAppID,
 		Attribution:   miniprogram.AttributionConfirmed,
+		Title:         title,
 		URL:           rawURL,
 		SourceURL:     rawURL,
 		Source:        "response",
@@ -559,9 +564,13 @@ func scanPageMedia(store *miniprogram.Store, generation uint64, pageURL string, 
 	}
 	// 媒体是页面内播放器发起的，Referer 应为该页面本身，而不是页面的上游 Referer。
 	pageHeaders["Referer"] = pageURL
+	pageTitle := miniprogram.ExtractHTMLTitle(body)
 	candidates := miniprogram.MediaURLsInText(string(body))
 	for _, candidate := range candidates {
 		candidate.Attribution = miniprogram.AttributionUnattributed
+		if candidate.Title == "" && pageTitle != "" {
+			candidate.Title = pageTitle
+		}
 		candidate.SourceURL = pageURL
 		candidate.Headers = miniprogram.HeadersForURL(pageHeaders, pageURL, candidate.URL)
 		_, _ = store.AddUnattributedForGeneration(generation, candidate)

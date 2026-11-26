@@ -3,7 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"time"
-	"wx_channel/internal/app"
+	"github.com/MuZiJin701/wx-mini-video/internal/app"
 )
 
 type networkMsg struct {

@@ -1,16 +1,17 @@
 package tui
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
-// view_helpers.go 提供逐行拼装、按钮、输入框与覆盖层等共享的渲染原语。
+// view_helpers.go 提供逐行拼装、1 行扁平按钮、输入框与覆盖层等共享渲染原语。
 
 func (m model) screenWidth() int {
 	if m.width > 0 {
@@ -41,6 +42,11 @@ func (m model) spaces(count int) string {
 	return m.st.screen.Render(strings.Repeat(" ", count))
 }
 
+func (m model) bgANSI() string {
+	rgb := ui.RGB(m.st.palette.Background)
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", rgb[0], rgb[1], rgb[2])
+}
+
 // padLine 把若干已渲染片段拼成一行并补齐到屏幕宽度。
 func (m model) padLine(segments ...string) string {
 	joined := strings.Join(segments, "")
@@ -68,8 +74,7 @@ const (
 	buttonPrimary
 )
 
-// buttonLines 渲染一个带 1 格实线边框的按钮（高 3 行）。width 是包含边框与
-// 内边距的总宽度；除颜色外，各状态尺寸完全一致。
+// buttonLines 渲染一个 1 行无边框扁平色块按钮。width 是包含内边距的总宽度。
 func (m model) buttonLines(label string, kind buttonKind, focused, hovered bool, width int) []string {
 	var style lipgloss.Style
 	if kind == buttonPrimary {
@@ -89,31 +94,34 @@ func (m model) buttonLines(label string, kind buttonKind, focused, hovered bool,
 			style = m.st.buttonFocused
 		}
 	}
-	return renderFramedButton(style, label, width)
+	return []string{renderFlatButton(style, label, width)}
 }
 
-// renderFramedButton 用一致的内宽渲染 3 行按钮，保证显示宽度等于 width。
-func renderFramedButton(style lipgloss.Style, label string, width int) []string {
-	content := width - 4 // 2 列边框 + 左右各 1 列内边距
+// renderFlatButton 用一致的内宽渲染 1 行扁平按钮，保证显示宽度等于 width。
+func renderFlatButton(style lipgloss.Style, label string, width int) string {
+	content := width - 2 // 左右各 1 列内边距
 	if content < 1 {
 		content = 1
 	}
-	label = strings.Repeat(" ", max(0, (content-ui.Width(label))/2)) + label
-	rendered := style.Render(ui.Fit(label, content))
-	return strings.Split(rendered, "\n")
+	pad := max(0, (content-ui.Width(label))/2)
+	return style.Render(ui.Fit(strings.Repeat(" ", pad)+label, content))
 }
 
-// buttonWidth 返回按钮的总宽度：文字 + 边框 + 内边距，且不小于 minWidth。
+// buttonWidth 返回扁平按钮的总宽度：文字 + 左右内边距，且不小于 minWidth。
 func buttonWidth(label string, minWidth int) int {
-	width := ui.Width(label) + 4
+	width := ui.Width(label) + 2
 	if width < minWidth {
 		width = minWidth
 	}
 	return width
 }
 
-// joinButtons 把多个按钮按行横向拼接，按钮之间留 1 列间距。
-func joinButtons(groups ...[]string) []string {
+// joinButtons 把多个 1 行或多行按钮按行横向拼接，按钮之间用带背景色的空格分隔。
+func (m model) joinButtons(groups ...[]string) []string {
+	return joinButtonsWithSep(m.spaces(1), groups...)
+}
+
+func joinButtonsWithSep(sep string, groups ...[]string) []string {
 	height := 0
 	for _, group := range groups {
 		if len(group) > height {
@@ -130,7 +138,7 @@ func joinButtons(groups ...[]string) []string {
 				parts = append(parts, "")
 			}
 		}
-		out[row] = strings.Join(parts, " ")
+		out[row] = strings.Join(parts, sep)
 	}
 	return out
 }
@@ -144,12 +152,12 @@ type actionButton struct {
 	focused bool
 }
 
-// compact 用单行 chip 形态渲染，避免小窗口被按钮占满。
+// compact 时使用紧凑自然宽度，宽窗口保留最小对齐宽度；均渲染为 1 行扁平色块按钮。
 func (m model) buttonWidthFor(button actionButton, compact bool) int {
 	if compact {
 		return ui.Width(button.label) + 2
 	}
-	return buttonWidth(button.label, 16)
+	return buttonWidth(button.label, 12)
 }
 
 func (m model) buttonStyleFor(button actionButton) lipgloss.Style {
@@ -193,8 +201,7 @@ func (m model) chipStyleFor(button actionButton) lipgloss.Style {
 	return m.st.chip
 }
 
-// renderButtons 把按钮按宽度自动换行。compact 为真时使用单行 chip 形态，
-// 否则使用 3 行带边框按钮；返回的命中区域 y 以返回行数组的起点为 0。
+// renderButtons 把 1 行扁平按钮按宽度自动换行；返回的命中区域 y 以返回行数组的起点为 0。
 func (m model) renderButtons(buttons []actionButton, left, width int, compact bool) ([]string, []paneHit) {
 	var lines []string
 	var hits []paneHit
@@ -214,35 +221,22 @@ func (m model) renderButtons(buttons []actionButton, left, width int, compact bo
 			return
 		}
 		top := len(lines)
-		if compact {
-			var parts []string
-			x := left
-			for _, item := range row {
-				style := m.chipStyleFor(item.actionButton)
-				rendered := style.Render(item.label)
-				parts = append(parts, rendered)
-				if item.enabled {
-					hits = append(hits, paneHit{x: x, y: top, w: item.width, h: 1, action: item.action, index: 0})
-				}
-				x += item.width + 1
+		var parts []string
+		x := left
+		for _, item := range row {
+			var rendered string
+			if compact {
+				rendered = m.chipStyleFor(item.actionButton).Render(item.label)
+			} else {
+				rendered = renderFlatButton(m.buttonStyleFor(item.actionButton), item.label, item.width)
 			}
-			lines = append(lines, m.padLine(m.spaces(left), strings.Join(parts, " ")))
-		} else {
-			var groups [][]string
-			x := left
-			for _, item := range row {
-				style := m.buttonStyleFor(item.actionButton)
-				groups = append(groups, renderFramedButton(style, item.label, item.width))
-				if item.enabled {
-					hits = append(hits, paneHit{x: x, y: top, w: item.width, h: 3, action: item.action, index: 0})
-				}
-				x += item.width + 1
+			parts = append(parts, rendered)
+			if item.enabled {
+				hits = append(hits, paneHit{x: x, y: top, w: item.width, h: 1, action: item.action, index: 0})
 			}
-			rows := joinButtons(groups...)
-			for _, line := range rows {
-				lines = append(lines, m.padLine(m.spaces(left), line))
-			}
+			x += item.width + 1
 		}
+		lines = append(lines, m.padLine(m.spaces(left), strings.Join(parts, m.spaces(1))))
 		row = nil
 		rowWidth = 0
 	}
@@ -322,7 +316,7 @@ func inputDisplay(text string, cursor, width int) string {
 	return display
 }
 
-// overlayAt 把面板覆盖到画布指定坐标；左右两侧保留原有内容，越界部分被裁掉。
+// overlayAt 把面板覆盖到画布指定坐标；左右两侧保留原有内容与背景底色，越界部分被裁掉。
 func (m model) overlayAt(canvas []string, pane []string, x, y int) ([]string, int, int) {
 	if len(pane) == 0 || len(canvas) == 0 {
 		return canvas, x, y
@@ -351,12 +345,13 @@ func (m model) overlayAt(canvas []string, pane []string, x, y int) ([]string, in
 	if y < 0 {
 		y = 0
 	}
+	bgANSI := m.bgANSI()
 	for i, line := range pane {
 		row := y + i
 		if row < 0 || row >= len(canvas) {
 			continue
 		}
-		canvas[row] = composeOverlayRow(canvas[row], line, x, paneWidth, m.screenWidth())
+		canvas[row] = composeOverlayRow(canvas[row], line, x, paneWidth, m.screenWidth(), bgANSI)
 	}
 	return canvas, x, y
 }
@@ -385,8 +380,8 @@ func ansiTokens(line string) []ansiToken {
 	return tokens
 }
 
-// composeOverlayRow 把 pane 横向嵌入 base 的 [x, x+paneWidth) 列，保留两侧内容。
-func composeOverlayRow(base, pane string, x, paneWidth, screenWidth int) string {
+// composeOverlayRow 把 pane 横向嵌入 base 的 [x, x+paneWidth) 列，保留两侧内容与背景底色。
+func composeOverlayRow(base, pane string, x, paneWidth, screenWidth int, bgANSI string) string {
 	tokens := ansiTokens(base)
 	var out strings.Builder
 	col := 0
@@ -416,25 +411,52 @@ func composeOverlayRow(base, pane string, x, paneWidth, screenWidth int) string 
 	out.WriteString("\x1b[0m")
 
 	col = 0
+	activeSGR := ""
 	var suffix strings.Builder
+	emittedResume := false
 	for _, token := range tokens {
 		if token.escape {
 			if col >= x+paneWidth {
+				if !emittedResume {
+					suffix.WriteString(bgANSI)
+					suffix.WriteString(activeSGR)
+					emittedResume = true
+				}
 				suffix.WriteString(token.text)
+			} else if strings.HasSuffix(token.text, "m") {
+				if token.text == "\x1b[0m" || token.text == "\x1b[m" {
+					activeSGR = ""
+				} else {
+					activeSGR += token.text
+				}
 			}
 			continue
 		}
 		if col >= x+paneWidth {
+			if !emittedResume {
+				suffix.WriteString(bgANSI)
+				suffix.WriteString(activeSGR)
+				emittedResume = true
+			}
 			suffix.WriteString(token.text)
 		} else if col+token.width > x+paneWidth {
+			if !emittedResume {
+				suffix.WriteString(bgANSI)
+				suffix.WriteString(activeSGR)
+				emittedResume = true
+			}
 			suffix.WriteString(strings.Repeat(" ", x+paneWidth-col))
 		}
 		col += token.width
 	}
-	out.WriteString(suffix.String())
+	if suffix.Len() > 0 {
+		out.WriteString(suffix.String())
+	}
 	width := ui.Width(out.String())
 	if width < screenWidth {
+		out.WriteString(bgANSI)
 		out.WriteString(strings.Repeat(" ", screenWidth-width))
+		out.WriteString("\x1b[0m")
 	}
 	return out.String()
 }
@@ -466,7 +488,7 @@ func (m model) panelFrame(title string, interior []string, footer string, width 
 	}
 	if footer != "" {
 		rows = append(rows, bar("├", "─", "┤"))
-		rows = append(rows, frame.Render("│")+m.st.muted.Render(ui.Fit(" "+footer, inner))+frame.Render("│"))
+		rows = append(rows, frame.Render("│")+lipgloss.NewStyle().Foreground(m.st.palette.Muted).Background(m.st.palette.Surface).Render(ui.Fit(" "+footer, inner))+frame.Render("│"))
 	}
 	rows = append(rows, bar("└", "─", "┘"))
 	return rows

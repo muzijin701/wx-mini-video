@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/minidownload"
-	"wx_channel/pkg/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
 )
 
 var legacyRootPresent = func() (bool, error) { return certificate.CheckHasCertificate(certificate.LegacyRootThumbprint) }

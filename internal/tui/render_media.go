@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
-// render_media.go 负责媒体视图：目标条、分类页签、操作按钮、候选表格、详情抽屉、
+// render_media.go 负责媒体视图：目标条、分类页签、扁平操作按钮、候选表格、详情抽屉、
 // 状态行与日志浮层。
 
 type tableColumn struct {
@@ -83,7 +83,7 @@ func renderTableRow(columns []tableColumn, values []string, style interface{ Ren
 	return line
 }
 
-// mediaActionButtons 返回媒体视图的操作按钮；禁用状态与快捷键处理保持一致。
+// mediaActionButtons 返回媒体视图的操作按钮；“更换目标 · s”由上方目标条承担，此处不再重复。
 func (m model) mediaActionButtons() []actionButton {
 	hasSelection := m.hasCandidate()
 	return []actionButton{
@@ -94,12 +94,11 @@ func (m model) mediaActionButtons() []actionButton {
 		{label: "刷新 · r", action: hitActionRefresh, enabled: true},
 		{label: "打开目录 · o", action: hitActionOpenDir, enabled: true},
 		{label: "清空 · c", action: hitActionClear, enabled: true},
-		{label: "更换目标 · s", action: hitActionTargetSwitch, enabled: !m.downloading},
 	}
 }
 
 func (m model) renderMedia(startY, height int, metrics ui.Metrics) []string {
-	left := metrics.BrandPadX + metrics.ContentLeft
+	left := metrics.ContentLeft
 	rows := make([]string, 0, height)
 	y := startY
 
@@ -135,11 +134,12 @@ func (m model) renderMedia(startY, height int, metrics ui.Metrics) []string {
 		tableLines = 1
 	}
 
-	columns := tableLayout(m.tableColumns(metrics), metrics.ContentWidth-2)
-	header := renderTableRow(columns, columnTitles(columns), m.st.muted, metrics.ContentWidth-2)
+	tableWidth := metrics.ContentWidth
+	columns := tableLayout(m.tableColumns(metrics), tableWidth)
+	header := renderTableRow(columns, columnTitles(columns), m.st.muted, tableWidth)
 	rows = append(rows, m.padLine(m.spaces(left), header))
 	y++
-	tableRows, tableHits := m.renderCandidateTable(columns, tableLines, y, left, metrics)
+	tableRows, tableHits := m.renderCandidateTable(columns, tableLines, y, left, tableWidth)
 	rows = append(rows, tableRows...)
 	y += len(tableRows)
 
@@ -174,7 +174,7 @@ func columnTitles(columns []tableColumn) []string {
 }
 
 func (m model) renderCategoryTabs(y int, metrics ui.Metrics) string {
-	left := metrics.BrandPadX + metrics.ContentLeft
+	left := metrics.ContentLeft
 	width := metrics.ContentWidth
 	labels := m.categoryTabLabels(width)
 	var parts []string
@@ -195,7 +195,7 @@ func (m model) renderCategoryTabs(y int, metrics ui.Metrics) string {
 		m.hits.add(x, y, renderedWidth, 1, hitTab, i)
 		x += renderedWidth
 		if i < len(categories)-1 {
-			parts = append(parts, " ")
+			parts = append(parts, m.spaces(1))
 			x++
 		}
 	}
@@ -250,14 +250,13 @@ func (m model) candidateKindShort(candidate miniprogram.Candidate, width int) st
 	return display
 }
 
-func (m model) renderCandidateTable(columns []tableColumn, maxRows, startY, left int, metrics ui.Metrics) ([]string, []paneHit) {
+func (m model) renderCandidateTable(columns []tableColumn, maxRows, startY, left, width int) ([]string, []paneHit) {
 	visible := m.filteredCandidates()
 	rows := make([]string, 0, maxRows)
 	var hits []paneHit
 	if maxRows < 1 {
 		return rows, hits
 	}
-	width := metrics.ContentWidth - 2
 	if width < 12 {
 		width = 12
 	}
@@ -359,8 +358,8 @@ func (m model) rowValues(candidate miniprogram.Candidate, columns []tableColumn)
 
 func (m model) renderDrawer(metrics ui.Metrics, startY, height int) []string {
 	visible := m.filteredCandidates()
-	left := metrics.BrandPadX + metrics.ContentLeft
-	width := metrics.ContentWidth - 2
+	left := metrics.ContentLeft
+	width := metrics.ContentWidth
 	if width < 12 {
 		width = 12
 	}
@@ -447,7 +446,7 @@ func candidateHost(rawURL string) string {
 }
 
 func (m model) renderStatusLine(y int, metrics ui.Metrics) string {
-	left := metrics.BrandPadX + metrics.ContentLeft
+	left := metrics.ContentLeft
 	width := metrics.ContentWidth
 	text := m.statusText()
 	style := m.st.text
@@ -488,7 +487,14 @@ func (m model) statusText() string {
 	if len(pool) == 0 {
 		return "提示：目标已选定后，在 PC 微信重新加载目标小程序的图片或播放音视频；来源未确认的媒体会以 ? 标记按类型显示。"
 	}
-	return fmt.Sprintf("共 %d 个候选，其中 %d 个来源未确认（?）。↑/↓ 选择，d/Enter 下载，i 详情，l 日志。", len(pool), countUnattributed(pool))
+	visible := m.filteredCandidates()
+	pos := ""
+	if len(visible) > 0 && m.selected >= 0 && m.selected < len(visible) {
+		pos = fmt.Sprintf("第 %d/%d 项 · ", m.selected+1, len(visible))
+	} else if len(visible) > 0 {
+		pos = fmt.Sprintf("当前分类 %d 项 · ", len(visible))
+	}
+	return fmt.Sprintf("%s共 %d 个候选，其中 %d 个来源未确认（?）。↑/↓ 选择，d/Enter 下载，i 详情，l 日志。", pos, len(pool), countUnattributed(pool))
 }
 
 func progressLine(progress minidownload.Progress) string {
@@ -570,12 +576,13 @@ func (m model) logOverlayPane(metrics ui.Metrics) ([]string, []paneHit) {
 	if end > total {
 		end = total
 	}
+	surfaceText := m.surfaceStyle(m.st.palette.Foreground)
 	var interior []string
 	for i := start; i < end; i++ {
-		interior = append(interior, m.interiorLine(" "+m.logs[i], inner, m.st.text))
+		interior = append(interior, m.interiorLine(" "+m.logs[i], inner, surfaceText))
 	}
 	for len(interior) < bodyRows {
-		interior = append(interior, m.interiorLine("", inner, m.st.text))
+		interior = append(interior, m.interiorLine("", inner, surfaceText))
 	}
 	path := filepath.Join(m.runtime.Settings.DownloadDir, "wx-mini-video.log")
 	pane := m.panelFrame("日志", interior, "关闭 · Esc / l   "+path, width)

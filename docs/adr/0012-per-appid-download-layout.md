@@ -1,6 +1,6 @@
 # 下载产物按目标 AppID 与资源类型分类
 
-状态：已实施（2026-10-25）。修订 [ADR 0002](0002-portable-runtime-data.md) 中「下载目录平铺保存媒体」的布局描述。本日后续[需求修订](../tui-alignment-requirements.md)新增直播目录、将 m3u8 目录改为分段媒体；目录修订已按该需求实施，差异与后续项见文末“实施记录”。
+状态：已实施（2026-10-25）。修订 [ADR 0002](0002-portable-runtime-data.md) 中「下载目录平铺保存媒体」的布局描述。本日后续[需求修订](../tui-alignment-requirements.md)新增直播目录、将 m3u8 目录改为分段媒体；目录修订已按该需求实施，差异与后续项见文末“实施记录”。文件命名规则由 [ADR 0014](0014-purple-flat-ui-and-readable-names.md) 修订。
 
 ## 背景
 

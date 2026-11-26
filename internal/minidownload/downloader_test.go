@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 func TestDownloadDirectAudioPreservesBytesAndSuffixWithoutFFmpeg(t *testing.T) {
@@ -736,7 +736,7 @@ func TestDownloadDefaultNameUsesLocalTimeTypeAndShortCandidateID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := filepath.Base(output), "图片_20261025-130000_1a2b3c4d.jpg"; got != want {
+	if got, want := filepath.Base(output), "图片_1a2b3c4d.jpg"; got != want {
 		t.Fatalf("output filename = %q, want %q", got, want)
 	}
 	if got, want := filepath.Dir(output), filepath.Join(d.Dir, "wx123", miniprogram.DirImages); got != want {
@@ -761,7 +761,7 @@ func TestDownloadUnattributedCandidateUsesCurrentTargetAndCopyToken(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := filepath.Base(output), "视频_20261025-130512_copy.mp4"; got != want {
+	if got, want := filepath.Base(output), "视频_copy.mp4"; got != want {
 		t.Fatalf("output filename = %q, want %q", got, want)
 	}
 	if got, want := filepath.Dir(output), filepath.Join(d.Dir, "wx456", miniprogram.DirVideos); got != want {
@@ -805,7 +805,7 @@ func TestDownloadM3U8NameUsesMP4AndSegmentsBucket(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "未找到 ffmpeg") {
 		t.Fatalf("Download() error = %v, want ffmpeg missing error", err)
 	}
-	if got, want := filepath.Base(output), "分段媒体_20261025-130733_5a4b3c2d.mp4"; got != want {
+	if got, want := filepath.Base(output), "分段媒体_5a4b3c2d.mp4"; got != want {
 		t.Fatalf("output filename = %q, want %q", got, want)
 	}
 	if got, want := filepath.Dir(output), filepath.Join(d.Dir, "wx789", miniprogram.DirSegments); got != want {
@@ -945,11 +945,11 @@ func TestDownloadFiniteFLVIgnoresLiveHint(t *testing.T) {
 	if err != nil || len(got) != len(body) {
 		t.Fatalf("finite flv output = %d bytes (err %v), want %d", len(got), err, len(body))
 	}
-	// 疑似直播按 直播/ 选名，实际响应为有限文件后移动到 视频/，默认前缀同步改为 视频_。
+	// 疑似直播按 直播/ 选名，实际响应为有限文件后移动到 视频/，并按普通视频去除时间戳。
 	if wantDir := filepath.Join(d.Dir, "_unknown", miniprogram.DirVideos); filepath.Dir(output) != wantDir {
 		t.Fatalf("finite flv dir = %q, want %q", filepath.Dir(output), wantDir)
 	}
-	if gotName, want := filepath.Base(output), "视频_20261025-130000_finite-f.flv"; gotName != want {
+	if gotName, want := filepath.Base(output), "视频_finite-f.flv"; gotName != want {
 		t.Fatalf("finite flv name = %q, want %q", gotName, want)
 	}
 	if stale := filepath.Join(d.Dir, "_unknown", miniprogram.DirLive, "直播_20261025-130000_finite-f.flv"); fileExists(stale) {
@@ -1398,7 +1398,7 @@ func TestDownloadUnknownFileUsesOtherDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := filepath.Base(output), "其他_20261025-130000_file-can.bin"; got != want {
+	if got, want := filepath.Base(output), "其他_file-can.bin"; got != want {
 		t.Fatalf("unknown file name = %q, want %q", got, want)
 	}
 	if got, want := filepath.Dir(output), filepath.Join(d.Dir, "_unknown", miniprogram.DirOther); got != want {
@@ -1436,11 +1436,11 @@ func TestDownloadSuspectedLiveMoveDoesNotOverwriteTargets(t *testing.T) {
 	if err := os.MkdirAll(bucket, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	existingPath := filepath.Join(bucket, "视频_20261025-130000_collide1.flv")
+	existingPath := filepath.Join(bucket, "视频_collide1.flv")
 	if err := os.WriteFile(existingPath, []byte("OLD-FINAL"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	unsavedPart := filepath.Join(bucket, "视频_20261025-130000_collide1_2.flv"+partialSuffix(candidate))
+	unsavedPart := filepath.Join(bucket, "视频_collide1_2.flv"+partialSuffix(candidate))
 	unsavedData := append([]byte("FLV\x01\x05\x00\x00\x00\x09"), []byte("OLD-UNSAVED")...)
 	if err := os.WriteFile(unsavedPart, unsavedData, 0o644); err != nil {
 		t.Fatal(err)
@@ -1450,7 +1450,7 @@ func TestDownloadSuspectedLiveMoveDoesNotOverwriteTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("download failed: %v", err)
 	}
-	if got, want := filepath.Base(output), "视频_20261025-130000_collide1_3.flv"; got != want {
+	if got, want := filepath.Base(output), "视频_collide1_3.flv"; got != want {
 		t.Fatalf("moved file name = %q, want %q", got, want)
 	}
 	if saved, readErr := os.ReadFile(existingPath); readErr != nil || string(saved) != "OLD-FINAL" {
@@ -1657,5 +1657,175 @@ func TestDownloadCancelBeforeResponseKeepsLiveHint(t *testing.T) {
 	defer mu.Unlock()
 	if len(got) != 1 || !got[0] {
 		t.Fatalf("live callbacks = %v, want only the pre-download live hint", got)
+	}
+}
+
+func TestOutputNameUsesRealTitleAndTruncatesSafely(t *testing.T) {
+	stubDownloadClock(t, time.Date(2026, 11, 26, 14, 30, 0, 0, time.Local))
+	// 1. 普通有标题资源：<短标题>_<候选ID前8位>.<后缀>
+	titled := miniprogram.Candidate{
+		ID:     "1234567890abcdef",
+		Title:  `课程:第1节/讲解?`,
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	if got := OutputName(titled, ""); got != "课程-第1节-讲解_12345678.mp4" {
+		t.Fatalf("titled video OutputName = %q", got)
+	}
+
+	// 2. 超过 40 个字符的长标题截断到 40 字以内，并保留候选 ID 前 8 位。
+	longTitle := miniprogram.Candidate{
+		ID:     "abcdef1234567890",
+		Title:  strings.Repeat("甲", 55),
+		Kind:   "image",
+		Suffix: ".jpg",
+	}
+	gotLong := OutputName(longTitle, "")
+	wantLong := strings.Repeat("甲", 40) + "_abcdef12.jpg"
+	if gotLong != wantLong {
+		t.Fatalf("long title OutputName = %q, want %q", gotLong, wantLong)
+	}
+
+	// 3. 直播录制有标题时保留时间戳，便于区分多次开录。
+	titledLive := miniprogram.Candidate{
+		ID:     "live99887766",
+		Title:  "双11专场直播",
+		Kind:   "video",
+		Suffix: ".flv",
+		Live:   true,
+	}
+	if got := OutputName(titledLive, ""); got != "双11专场直播_20261126-143000_live9988.flv" {
+		t.Fatalf("titled live OutputName = %q", got)
+	}
+
+	// 4. URL 可读文件名在无 Title 时同样用于落盘命名。
+	urlNamedVideo := miniprogram.Candidate{
+		ID:     "1234567890abcdef",
+		URL:    "https://cdn.eastbuy.com/media/%E6%98%A5%E8%8C%B6%E5%AE%A3%E4%BC%A0%E7%89%87.mp4",
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	if got := OutputName(urlNamedVideo, ""); got != "春茶宣传片_12345678.mp4" {
+		t.Fatalf("url-titled video OutputName = %q", got)
+	}
+	urlBanner := miniprogram.Candidate{
+		ID:     "1234567890abcdef",
+		URL:    "https://cdn.eastbuy.com/assets/product-banner.jpg",
+		Kind:   "image",
+		Suffix: ".jpg",
+	}
+	if got := OutputName(urlBanner, ""); got != "product-banner_12345678.jpg" {
+		t.Fatalf("url banner OutputName = %q", got)
+	}
+
+	// 5. 无真实标题且为随机哈希 URL 时：常规资源附带业务域名并省略时间；直播仍保留时间。
+	untitled := miniprogram.Candidate{
+		ID:     "998877665544",
+		URL:    "https://v3.eastbuy.com/vod/d8fb84bccd044dd6885dfd56332a8292.mp4",
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	if got := OutputName(untitled, ""); got != "视频_eastbuy.com_99887766.mp4" {
+		t.Fatalf("untitled domain OutputName = %q", got)
+	}
+	untitledLive := miniprogram.Candidate{
+		ID:     "live99887766",
+		URL:    "https://pull.eastbuy.com/live/7559184446249188_esd.flv",
+		Kind:   "video",
+		Suffix: ".flv",
+		Live:   true,
+	}
+	if got := OutputName(untitledLive, ""); got != "直播_eastbuy.com_20261126-143000_live9988.flv" {
+		t.Fatalf("untitled live domain OutputName = %q", got)
+	}
+	bareUntitled := miniprogram.Candidate{
+		ID:     "998877665544",
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	if got := OutputName(bareUntitled, ""); got != "视频_99887766.mp4" {
+		t.Fatalf("bare untitled OutputName = %q", got)
+	}
+}
+
+func TestDownloadTitledResumeAndLateLiveArchive(t *testing.T) {
+	// 普通有标题资源中断后隔秒重试应复用原 .part 并续传，晚确认直播后归入 直播/ 并补时间戳。
+	body := []byte("0123456789ABCDEF")
+	var rangeSeen string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rangeSeen = r.Header.Get("Range")
+		w.Header().Set("ETag", `"etag-title"`)
+		if rangeSeen == "bytes=4-" {
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes 4-%d/%d", len(body)-1, len(body)))
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)-4))
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(body[4:])
+			return
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	defer ts.Close()
+
+	d := New(t.TempDir())
+	stubDownloadClock(t, time.Date(2026, 11, 26, 14, 30, 8, 0, time.Local))
+	candidate := miniprogram.Candidate{
+		ID:     "resume123456",
+		AppID:  "wx123",
+		Title:  "产品介绍视频",
+		URL:    ts.URL + "/video.mp4",
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	bucket := filepath.Join(d.Dir, "wx123", miniprogram.DirVideos)
+	if err := os.MkdirAll(bucket, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	partPath := filepath.Join(bucket, "产品介绍视频_resume12.mp4"+partialSuffix(candidate))
+	if err := os.WriteFile(partPath, body[:4], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(partPath+".json", []byte(`{"etag":"\"etag-title\"","total":16}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output, err := d.Download(context.Background(), candidate, "", "wx123")
+	if err != nil {
+		t.Fatalf("titled resume download failed: %v", err)
+	}
+	if rangeSeen != "bytes=4-" {
+		t.Fatalf("Range header = %q, want bytes=4-", rangeSeen)
+	}
+	if filepath.Base(output) != "产品介绍视频_resume12.mp4" {
+		t.Fatalf("resumed output = %q", output)
+	}
+
+	// 晚确认直播：初始按视频命名，确认 FLV 直播流后移入 直播/ 并补时间戳和 .flv。
+	frame := append([]byte("FLV\x01\x05\x00\x00\x00\x09"), bytes.Repeat([]byte("L"), 32)...)
+	liveServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/x-flv")
+		flusher, _ := w.(http.Flusher)
+		_, _ = w.Write(frame)
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}))
+	defer liveServer.Close()
+	lateCandidate := miniprogram.Candidate{
+		ID:     "latelive8899",
+		AppID:  "wx123",
+		Title:  "新品发布会",
+		URL:    liveServer.URL + "/stream",
+		Kind:   "video",
+		Suffix: ".mp4",
+	}
+	liveOut, err := d.Download(context.Background(), lateCandidate, "", "wx123")
+	if err != nil {
+		t.Fatalf("late live download failed: %v", err)
+	}
+	if filepath.Dir(liveOut) != filepath.Join(d.Dir, "wx123", miniprogram.DirLive) {
+		t.Fatalf("late live dir = %q, want 直播/", filepath.Dir(liveOut))
+	}
+	if filepath.Base(liveOut) != "新品发布会_20261126-143008_latelive.flv" {
+		t.Fatalf("late live base = %q", filepath.Base(liveOut))
 	}
 }

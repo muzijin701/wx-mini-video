@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"wx_channel/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
 )
 
 func thinMachO(cpu macho.Cpu, subtype uint32) []byte {

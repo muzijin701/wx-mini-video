@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 func htmlScanContext(body string, contentType string, pageURL string, referer string) *testProxyContext {

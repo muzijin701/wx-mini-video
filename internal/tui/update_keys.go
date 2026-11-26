@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"wx_channel/internal/tui/ui"
+	"github.com/MuZiJin701/wx-mini-video/internal/tui/ui"
 )
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

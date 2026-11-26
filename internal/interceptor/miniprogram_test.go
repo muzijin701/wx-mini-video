@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
 )
 
 type testProxyContext struct {
@@ -611,5 +611,48 @@ func TestMiniProgramPluginMarksLiveFLVResponse(t *testing.T) {
 	finite, ok := byURL["https://cdn.example.com/clip.flv"]
 	if !ok || finite.Live || finite.Kind != "video" || finite.Suffix != ".flv" {
 		t.Fatalf("finite flv candidate = %#v, want video/.flv not live", finite)
+	}
+}
+
+func TestMiniProgramInterceptorExtractsBusinessDomainDispositionAndHTMLTitle(t *testing.T) {
+	store := miniprogram.NewStore()
+	plugin := CreateMiniProgramInterceptorPlugin(miniprogram.Target{AppID: "wx123"}, store, t.TempDir())
+
+	// 1. 响应头 Content-Disposition 文件名成为标题，且请求域名被记录到程序业务域名提示。
+	plugin.OnResponse(&testProxyContext{
+		req: &proxy.ContextReq{
+			Method: http.MethodGet,
+			URL:    &proxy.ContextURL{String: "https://media.eastbuy.com/download?id=99"},
+			Header: http.Header{"Referer": {"https://servicewechat.com/wx123/10/page-frame.html"}},
+		},
+		headers: http.Header{
+			"Content-Type":        {"video/mp4"},
+			"Content-Length":      {"2048"},
+			"Content-Disposition": {`attachment; filename="商品实拍讲解.mp4"`},
+		},
+	})
+	programs := store.Programs()
+	if len(programs) != 1 || programs[0].Domain != "eastbuy.com" {
+		t.Fatalf("Programs() = %#v, want domain eastbuy.com", programs)
+	}
+	items := store.List("wx123")
+	if len(items) != 1 || items[0].Title != "商品实拍讲解" {
+		t.Fatalf("response disposition title = %#v", items)
+	}
+
+	// 2. H5 扫描提取页面 <title> 赋予内联媒体候选。
+	plugin.OnResponse(&testProxyContext{
+		req: &proxy.ContextReq{
+			Method: http.MethodGet,
+			URL:    &proxy.ContextURL{String: "https://h5.eastbuy.com/detail.html"},
+		},
+		headers: http.Header{
+			"Content-Type": {"text/html; charset=utf-8"},
+		},
+		body: []byte(`<html><head><title>公开课回放页面</title></head><body><div data-sdk="miniprogram"></div><video src="https://cdn.eastbuy.com/v/abc.mp4"></video></body></html>`),
+	})
+	unattributed := store.Unattributed()
+	if len(unattributed) != 1 || unattributed[0].Title != "公开课回放页面" {
+		t.Fatalf("html scanned title = %#v", unattributed)
 	}
 }

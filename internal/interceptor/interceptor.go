@@ -12,9 +12,9 @@ import (
 	"github.com/ltaoo/echo"
 	"github.com/rs/zerolog"
 
-	"wx_channel/internal/interceptor/proxy"
-	"wx_channel/pkg/certificate"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor/proxy"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-const maxSixelColors = 64
+const maxSixelColors = 256
 
 type rgbColor struct {
 	r uint8
@@ -23,10 +23,10 @@ type colorBox struct {
 	count   int
 }
 
-// quantize64 builds an adaptive palette of at most 64 colors with a weighted
+// quantizeSixel builds an adaptive palette of at most 256 colors with a weighted
 // median cut, then maps every pixel to the nearest palette entry. It is a
 // deliberately small replacement for a general image-quantization package.
-func quantize64(img *image.RGBA) ([]rgbColor, []uint8) {
+func quantizeSixel(img *image.RGBA) ([]rgbColor, []uint8) {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	histogram := make(map[uint32]int, width*height/4+1)

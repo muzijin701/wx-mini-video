@@ -9,12 +9,12 @@ import (
 	"strings"
 	"sync"
 
-	"wx_channel/internal/config"
-	"wx_channel/internal/interceptor"
-	"wx_channel/internal/minidownload"
-	"wx_channel/internal/miniprogram"
-	"wx_channel/pkg/certificate"
-	"wx_channel/pkg/system"
+	"github.com/MuZiJin701/wx-mini-video/internal/config"
+	"github.com/MuZiJin701/wx-mini-video/internal/interceptor"
+	"github.com/MuZiJin701/wx-mini-video/internal/minidownload"
+	"github.com/MuZiJin701/wx-mini-video/internal/miniprogram"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/system"
 )
 
 type Runtime struct {

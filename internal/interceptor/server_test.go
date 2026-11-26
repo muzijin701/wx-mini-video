@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"wx_channel/pkg/certificate"
+	"github.com/MuZiJin701/wx-mini-video/internal/certificate"
 )
 
 func TestServerRejectsOccupiedPortBeforeProxySetup(t *testing.T) {
