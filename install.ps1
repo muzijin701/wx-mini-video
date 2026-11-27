@@ -84,8 +84,11 @@ try {
         throw "Installation verification failed: $ExePath not found."
     }
 
+    $AliasPath = Join-Path $InstallDir "wxmv.cmd"
+    Set-Content -Path $AliasPath -Value "@echo off`r`n`"%~dp0wx-mini-video.exe`" %*" -Encoding Ascii
+
     Write-Host "Installed wx-mini-video successfully!"
-    Write-Host "Run: `"$ExePath`""
+    Write-Host "Run: wx-mini-video (or short alias: wxmv)"
 } finally {
     if (Test-Path $TempDir) {
         Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue

@@ -70,6 +70,7 @@ for item in wx-mini-video.yaml downloads; do
 done
 
 ln -sf "$INSTALL_DIR/wx-mini-video.app/Contents/MacOS/wx-mini-video" "$BIN_DIR/wx-mini-video"
+ln -sf "$INSTALL_DIR/wx-mini-video.app/Contents/MacOS/wx-mini-video" "$BIN_DIR/wxmv"
 
 if [ "$NO_MODIFY_PATH" != "1" ]; then
   case ":${PATH}:" in
@@ -81,4 +82,4 @@ if [ "$NO_MODIFY_PATH" != "1" ]; then
 fi
 
 echo "Installed wx-mini-video (macOS unsigned preview) successfully!"
-echo "Run: $BIN_DIR/wx-mini-video (or open \"$INSTALL_DIR/wx-mini-video.app\")"
+echo "Run: $BIN_DIR/wx-mini-video (or short alias: $BIN_DIR/wxmv, or open \"$INSTALL_DIR/wx-mini-video.app\")"

@@ -30,6 +30,8 @@ Save images, videos, and audio loaded by **Mini Programs in desktop WeChat**. Re
   curl -fsSL https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.sh | sh
   ```
 
+After installation, launch from your terminal using `wx-mini-video` or the short command alias **`wxmv`**.
+
 ### Manual Archive Download
 
 | Your computer | File to download |

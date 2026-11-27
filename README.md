@@ -30,6 +30,8 @@
   curl -fsSL https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.sh | sh
   ```
 
+安装后可在终端直接输入 `wx-mini-video` 或短命令别名 **`wxmv`** 启动。
+
 ### 手动下载完整包
 
 | 你的电脑 | 下载哪个文件 |
