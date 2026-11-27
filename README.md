@@ -2,18 +2,44 @@
 
 把**电脑版微信小程序**里加载的图片、视频和音频保存到电脑，也支持部分直播录制。
 
-[下载最新版](https://github.com/MuZiJin701/wx-mini-video/releases/latest) · [English](https://github.com/MuZiJin701/wx-mini-video/blob/main/README.en.md)
+[下载最新版](https://github.com/muzijin701/wx-mini-video/releases/latest) · [English](https://github.com/muzijin701/wx-mini-video/blob/main/README.en.md)
 
-## 下载
+## 安装与下载
+
+### 包管理器（推荐）
+
+- **Windows (Scoop)**：
+  ```powershell
+  scoop bucket add muzijin701 https://github.com/muzijin701/scoop-bucket
+  scoop install muzijin701/wx-mini-video
+  ```
+- **macOS (Homebrew，测试版)**：
+  ```sh
+  brew tap muzijin701/tap
+  brew install wx-mini-video
+  ```
+
+### 一键安装脚本
+
+- **Windows (PowerShell)**：
+  ```powershell
+  irm https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.ps1 | iex
+  ```
+- **macOS**：
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.sh | sh
+  ```
+
+### 手动下载完整包
 
 | 你的电脑 | 下载哪个文件 |
 | --- | --- |
-| Windows 64 位 | [Windows 完整包](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
-| macOS 13 及以上，Intel 或 Apple Silicon | [Mac 通用包（测试版）](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
+| Windows 64 位 | [Windows 完整包](https://github.com/muzijin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
+| macOS 13 及以上，Intel 或 Apple Silicon | [Mac 通用包（测试版）](https://github.com/muzijin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
 
 **下载后先完整解压，不要直接在压缩包里运行。** 合并媒体所需的工具已随包附带，无需另外安装。
 
-Mac 版仍在测试，首次打开可能受到系统拦截，请参照 [Mac 使用说明](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/macos-usage.md)。
+Mac 版仍在测试，首次打开可能受到系统拦截，请参照 [Mac 使用说明](https://github.com/muzijin701/wx-mini-video/blob/main/docs/macos-usage.md)。
 
 ## 4 步开始使用
 
@@ -39,7 +65,7 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 
 `✓` 表示来源与所选小程序匹配；`?` 表示来源还未确认，下载前请核对内容。
 
-![Windows 版界面截图](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/screenshot.png)
+![Windows 版界面截图](https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/docs/images/screenshot.png)
 
 ### 4. 打开文件夹，正常退出
 
@@ -86,6 +112,6 @@ Windows 双击解压后的 `wx-mini-video.exe`；Mac 双击 `wx-mini-video.app`�
 
 升级前先退出旧程序，并保留自己的 `wx-mini-video.yaml` 配置和 `downloads` 文件夹。
 
-[详细排障与配置](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/guide.md#排障) · [更新记录](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [第三方组件与许可](THIRD-PARTY-NOTICES.md)
+[详细排障与配置](https://github.com/muzijin701/wx-mini-video/blob/main/docs/guide.md#排障) · [更新记录](https://github.com/muzijin701/wx-mini-video/blob/main/CHANGELOG.md) · [第三方组件与许可](THIRD-PARTY-NOTICES.md)
 
 仅保存你有权获取的内容，并遵守相关法律和平台规则。

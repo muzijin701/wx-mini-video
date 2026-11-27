@@ -2,18 +2,44 @@
 
 Save images, videos, and audio loaded by **Mini Programs in desktop WeChat**. Recording is also available for supported live streams.
 
-[Download latest](https://github.com/MuZiJin701/wx-mini-video/releases/latest) · [简体中文](https://github.com/MuZiJin701/wx-mini-video/blob/main/README.md)
+[Download latest](https://github.com/muzijin701/wx-mini-video/releases/latest) · [简体中文](https://github.com/muzijin701/wx-mini-video/blob/main/README.md)
 
-## Download
+## Install & Download
+
+### Package Managers (Recommended)
+
+- **Windows (Scoop)**:
+  ```powershell
+  scoop bucket add muzijin701 https://github.com/muzijin701/scoop-bucket
+  scoop install muzijin701/wx-mini-video
+  ```
+- **macOS (Homebrew, preview)**:
+  ```sh
+  brew tap muzijin701/tap
+  brew install wx-mini-video
+  ```
+
+### One-Line Install Scripts
+
+- **Windows (PowerShell)**:
+  ```powershell
+  irm https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.ps1 | iex
+  ```
+- **macOS**:
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/install.sh | sh
+  ```
+
+### Manual Archive Download
 
 | Your computer | File to download |
 | --- | --- |
-| 64-bit Windows | [Complete Windows package](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
-| macOS 13 or later, Intel or Apple Silicon | [Universal Mac package (test build)](https://github.com/MuZiJin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
+| 64-bit Windows | [Complete Windows package](https://github.com/muzijin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-windows-amd64.zip) |
+| macOS 13 or later, Intel or Apple Silicon | [Universal Mac package (test build)](https://github.com/muzijin701/wx-mini-video/releases/download/v0.2.1/wx-mini-video-macos-universal-unsigned.zip) |
 
 **Extract the whole ZIP before running the app.** The tools needed to merge media are included; no separate installation is needed.
 
-The Mac version is still a test build and may be blocked on first launch. See the [Mac instructions (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/macos-usage.md).
+The Mac version is still a test build and may be blocked on first launch. See the [Mac instructions (Chinese)](https://github.com/muzijin701/wx-mini-video/blob/main/docs/macos-usage.md).
 
 ## Get started in 4 steps
 
@@ -41,7 +67,7 @@ Click a resource, then “下载” (Download). Use the image, video, or audio t
 
 `✓` means the source matches the selected Mini Program. `?` means the source is unconfirmed, so check the content before downloading.
 
-![Windows app screenshot](https://raw.githubusercontent.com/MuZiJin701/wx-mini-video/main/docs/images/screenshot.png)
+![Windows app screenshot](https://raw.githubusercontent.com/muzijin701/wx-mini-video/main/docs/images/screenshot.png)
 
 ### 4. Find your files and quit
 
@@ -88,6 +114,6 @@ The mouse wheel scrolls the resource list without changing your selection. “�
 
 Before upgrading, quit the old app and keep your `wx-mini-video.yaml` settings and `downloads` folder.
 
-[Troubleshooting and configuration (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/docs/guide.md#排障) · [Change log (Chinese)](https://github.com/MuZiJin701/wx-mini-video/blob/main/CHANGELOG.md) · [Third-party components and licenses](THIRD-PARTY-NOTICES.md)
+[Troubleshooting and configuration (Chinese)](https://github.com/muzijin701/wx-mini-video/blob/main/docs/guide.md#排障) · [Change log (Chinese)](https://github.com/muzijin701/wx-mini-video/blob/main/CHANGELOG.md) · [Third-party components and licenses](THIRD-PARTY-NOTICES.md)
 
 Only save content you have the right to access, and follow applicable laws and platform rules.
